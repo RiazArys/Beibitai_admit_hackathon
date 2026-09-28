@@ -13,6 +13,12 @@ import {
 } from "./hand-gestures";
 import { MORSE_TO_CYRILLIC, formatMorse, getRandomMorseLetter } from "./morse";
 import { WORD_BANK } from "./words";
+import {
+  FLASH_MS,
+  HAND_LANDMARKER_MODEL_URL,
+  HOLD_MS,
+  MEDIAPIPE_WASM_URL,
+} from "./config";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -222,13 +228,13 @@ function flashTerminal() {
   terminalCard.classList.remove("wrong-letter");
   void terminalCard.offsetWidth;
   terminalCard.classList.add("wrong-letter");
-  window.setTimeout(() => terminalCard.classList.remove("wrong-letter"), 480);
+  window.setTimeout(() => terminalCard.classList.remove("wrong-letter"), FLASH_MS);
 }
 function flashSuccess() {
   terminalCard.classList.remove("right-letter");
   void terminalCard.offsetWidth;
   terminalCard.classList.add("right-letter");
-  window.setTimeout(() => terminalCard.classList.remove("right-letter"), 480);
+  window.setTimeout(() => terminalCard.classList.remove("right-letter"), FLASH_MS);
 }
 function setMode(mode: "transmit" | "training" | "words") {
   trainingMode = mode === "training";
@@ -426,7 +432,7 @@ function processVideo() {
     gestureHint.textContent =
       next === "none"
         ? "Покажи только нужные пальцы"
-        : "Удерживай жест 0,5 сек";
+        : `Удерживай жест ${HOLD_MS / 1000} сек`;
     // Новый жест — это новая команда. Не требуем убирать руку из кадра,
     // достаточно сменить форму пальцев и удержать её 500 мс.
     if (next !== candidate) {
@@ -434,7 +440,7 @@ function processVideo() {
       candidateSince = now;
       latched = false;
     }
-    if (next !== "none" && !latched && now - candidateSince > 500) {
+    if (next !== "none" && !latched && now - candidateSince > HOLD_MS) {
       acceptGesture(next);
       latched = true;
       gestureHint.textContent = "Убери или смени жест для следующего сигнала";
@@ -457,12 +463,11 @@ async function enableCamera() {
     video.srcObject = stream;
     await video.play();
     const vision = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm",
+      MEDIAPIPE_WASM_URL,
     );
     handLandmarker = await HandLandmarker.createFromOptions(vision, {
       baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        modelAssetPath: HAND_LANDMARKER_MODEL_URL,
         delegate: "GPU",
       },
       runningMode: "VIDEO",
