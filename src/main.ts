@@ -36,6 +36,25 @@ app.innerHTML = `
         <span class="brand-mark"><i></i><i></i><i></i></span>
         <span>MORSE<span>MOTION</span></span>
       </a>
+      <div class="topbar-tools">
+        <div class="appearance-control" role="group" aria-label="Тема оформления">
+          <span class="appearance-label">ТЕМА</span>
+          <div class="theme-switcher">
+            <button class="theme-button active" data-theme="dark" type="button" aria-pressed="true" aria-label="Тёмная тема" title="Тёмная тема">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.8 12.8A7.1 7.1 0 0 1 7.2 3.2a7.4 7.4 0 1 0 9.6 9.6Z" /></svg>
+              <span>Тёмная</span>
+            </button>
+            <button class="theme-button" data-theme="light" type="button" aria-pressed="false" aria-label="Светлая тема" title="Светлая тема">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.5" /><path d="M10 1.8v2M10 16.2v2M18.2 10h-2M3.8 10h-2m14-5.8-1.4 1.4M5.6 14.4l-1.4 1.4m11.6 0-1.4-1.4M5.6 5.6 4.2 4.2" /></svg>
+              <span>Светлая</span>
+            </button>
+          </div>
+        </div>
+        <button class="a11y-button" id="accessibilityToggle" type="button" aria-pressed="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10s2.8-5 8-5 8 5 8 5-2.8 5-8 5-8-5-8-5Z" /><circle cx="10" cy="10" r="2.1" /><path d="m4 17 12-14" class="a11y-slash" /></svg>
+          <span>Доступность</span>
+        </button>
+      </div>
       <div class="top-status" id="cameraStatus"><span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА</div>
       <button class="sound-toggle" id="soundToggle" type="button">ЗВУК: ВКЛ</button>
     </header>
@@ -74,6 +93,7 @@ app.innerHTML = `
           <div class="camera-corner bottom-left"></div><div class="camera-corner bottom-right"></div>
         </div>
         <div class="recognition-state"><span class="pulse"></span><span id="gestureState">Ожидаю жест</span><small id="gestureHint">Покажите руку в камеру</small></div>
+        <div class="camera-actions"><button class="camera-stop-button hidden" id="stopCamera" type="button">ВЫКЛЮЧИТЬ КАМЕРУ</button></div>
       </article>
 
       <aside class="terminal-card" id="terminalCard">
@@ -85,7 +105,7 @@ app.innerHTML = `
           <div class="decoded" id="decoded">_ _ _</div>
         </div>
         <div class="message"><small>СООБЩЕНИЕ</small><strong id="message">_ _ _</strong></div>
-        <button class="clear-button" id="clearSignal" type="button">СБРОСИТЬ СИГНАЛ</button>
+        <button class="clear-button" id="clearSignal" type="button" aria-label="Очистить текущий сигнал и сообщение">ОЧИСТИТЬ СООБЩЕНИЕ</button>
         <div class="history"><small>ПОСЛЕДНИЕ РАДИОГРАММЫ</small><div id="historyList"></div></div>
         </div>
         <div class="training-mode hidden" id="trainingMode">
@@ -121,6 +141,7 @@ app.innerHTML = `
           </div>
           <div class="speed-round-status hidden" id="speedRoundStatus">РАУНД ЗАВЕРШЁН</div>
           <button class="speed-start" id="startSpeed" type="button">НАЧАТЬ 2-МИНУТНЫЙ РАУНД</button>
+          <button class="speed-stop hidden" id="stopSpeed" type="button">ОСТАНОВИТЬ РАУНД</button>
         </div>
         <div class="training-mode hidden" id="calibrationMode">
           <div class="card-label">PERSONAL CALIBRATION <span id="calibrationStep">1 / 5</span></div>
@@ -139,12 +160,12 @@ app.innerHTML = `
     <section class="guide-section">
       <div class="section-heading"><p class="eyebrow">КАК УПРАВЛЯТЬ</p><h2>Твой язык жестов</h2></div>
       <div class="gesture-grid">
-        <article class="gesture active"><div class="gesture-icon">👍</div><div><span>ТОЧКА</span><strong>Большой палец</strong><p>Подними только большой палец</p></div><b>·</b></article>
-        <article class="gesture"><div class="gesture-icon">☝</div><div><span>ТИРЕ</span><strong>Указательный палец</strong><p>Подними только указательный палец</p></div><b>—</b></article>
-        <article class="gesture"><div class="gesture-icon">✌</div><div><span>ПРОБЕЛ</span><strong>Два пальца</strong><p>Большой и указательный вместе</p></div><b>␣</b></article>
-        <article class="gesture"><div class="gesture-icon">✋</div><div><span>ГОТОВО</span><strong>Открытая ладонь</strong><p>Завершить текущую букву</p></div><b>↵</b></article>
-        <article class="gesture"><div class="gesture-icon">🙌</div><div><span>СБРОС</span><strong>Две ладони</strong><p>Очистить всё сообщение</p></div><b>×</b></article>
-        <article class="gesture"><div class="gesture-icon">✊✊</div><div><span>ОТПРАВИТЬ</span><strong>Два кулака</strong><p>Передать радиограмму</p></div><b>↗</b></article>
+        <article class="gesture active" role="button" tabindex="0" aria-pressed="true"><div class="gesture-icon">👍</div><div><span>ТОЧКА</span><strong>Большой палец</strong><p>Подними только большой палец</p></div><b>·</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon">☝</div><div><span>ТИРЕ</span><strong>Указательный палец</strong><p>Подними только указательный палец</p></div><b>—</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon">✌</div><div><span>ПРОБЕЛ</span><strong>Два пальца</strong><p>Большой и указательный вместе</p></div><b>␣</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon">✋</div><div><span>ГОТОВО</span><strong>Открытая ладонь</strong><p>Завершить текущую букву</p></div><b>↵</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon">🙌</div><div><span>СБРОС</span><strong>Две ладони</strong><p>Очистить всё сообщение</p></div><b>×</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon">✊✊</div><div><span>ОТПРАВИТЬ</span><strong>Два кулака</strong><p>Передать радиограмму</p></div><b>↗</b></article>
       </div>
     </section>
 
@@ -171,10 +192,93 @@ app.innerHTML = `
   </main>
 `;
 
+const themeButtons = [...document.querySelectorAll<HTMLButtonElement>(".theme-button")];
+const accessibilityToggle = document.querySelector<HTMLButtonElement>("#accessibilityToggle")!;
+
+function applyTheme(theme: "dark" | "light") {
+  document.body.dataset.theme = theme;
+  themeButtons.forEach((button) => {
+    const isActive = button.dataset.theme === theme;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  localStorage.setItem("morsemotion-theme", theme);
+}
+
+function speakText(text: string) {
+  if (!document.body.classList.contains("accessibility-mode") || !("speechSynthesis" in window)) {
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ru-RU";
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
+function setAccessibilityMode(enabled: boolean) {
+  if (!enabled) {
+    speakText("Режим для незрячих выключен");
+  }
+  document.body.classList.toggle("accessibility-mode", enabled);
+  accessibilityToggle.classList.toggle("active", enabled);
+  accessibilityToggle.setAttribute("aria-pressed", String(enabled));
+  accessibilityToggle.querySelector("span")!.textContent = enabled ? "Доступность: вкл." : "Доступность";
+  accessibilityToggle.setAttribute(
+    "aria-label",
+    enabled ? "Выключить режим доступности" : "Включить режим доступности",
+  );
+  accessibilityToggle.querySelector(".a11y-slash")?.classList.toggle("hidden", enabled);
+  localStorage.setItem("morsemotion-accessibility", String(enabled));
+  if (enabled) {
+    speakText("Включён режим для незрячих");
+  }
+}
+
+const storedTheme = localStorage.getItem("morsemotion-theme");
+const savedTheme: "dark" | "light" = storedTheme === "light" ? "light" : "dark";
+const savedAccessibilityMode = localStorage.getItem("morsemotion-accessibility") === "true";
+applyTheme(savedTheme);
+setAccessibilityMode(savedAccessibilityMode);
+
+if (themeButtons.length) {
+  themeButtons.forEach((button) => {
+    button.addEventListener("click", () => applyTheme(button.dataset.theme as "dark" | "light"));
+  });
+}
+
+accessibilityToggle.addEventListener("click", () => {
+  const enabled = !document.body.classList.contains("accessibility-mode");
+  setAccessibilityMode(enabled);
+});
+
+const gestureCards = [...document.querySelectorAll<HTMLElement>(".gesture[role='button']")];
+function selectGestureCard(selectedCard: HTMLElement) {
+  gestureCards.forEach((card) => {
+    const isSelected = card === selectedCard;
+    card.classList.toggle("active", isSelected);
+    card.setAttribute("aria-pressed", String(isSelected));
+  });
+  const name = selectedCard.querySelector("span")?.textContent?.trim();
+  const instruction = selectedCard.querySelector("p")?.textContent?.trim();
+  if (name && instruction) {
+    speakText(`${name}. ${instruction}`);
+  }
+}
+gestureCards.forEach((card) => {
+  card.addEventListener("click", () => selectGestureCard(card));
+  card.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.code !== "Space") return;
+    event.preventDefault();
+    selectGestureCard(card);
+  });
+});
+
 const video = document.querySelector<HTMLVideoElement>("#webcam")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#handCanvas")!;
 const context = canvas.getContext("2d")!;
 const startCamera = document.querySelector<HTMLButtonElement>("#startCamera")!;
+const stopCamera = document.querySelector<HTMLButtonElement>("#stopCamera")!;
 const placeholder =
   document.querySelector<HTMLDivElement>("#cameraPlaceholder")!;
 const cameraStatus = document.querySelector<HTMLDivElement>("#cameraStatus")!;
@@ -240,6 +344,7 @@ const speedBestElement = document.querySelector<HTMLElement>("#speedBest")!;
 const speedRoundStatus =
   document.querySelector<HTMLElement>("#speedRoundStatus")!;
 const startSpeed = document.querySelector<HTMLButtonElement>("#startSpeed")!;
+const stopSpeed = document.querySelector<HTMLButtonElement>("#stopSpeed")!;
 const speedWordsButton =
   document.querySelector<HTMLButtonElement>("#speedWords")!;
 const speedLettersButton =
@@ -267,6 +372,7 @@ const resetCalibration =
   document.querySelector<HTMLButtonElement>("#resetCalibration")!;
 
 let handLandmarker: HandLandmarker | null = null;
+let videoFrameRequest: number | null = null;
 let currentSignal = "";
 let currentMessage = "";
 type AppGesture = HandGesture | "reset" | "send";
@@ -498,7 +604,12 @@ function beginCalibration() {
   calibrationSamples = [];
   startCalibrationCountdown();
   renderCalibration();
-  setFeedback("Подготовь первый жест. Через 3 секунды начнётся сканирование.");
+  const step = calibrationSteps[calibrationStepIndex];
+  setFeedback(
+    step
+      ? `Первый жест для калибровки: ${step.name}. ${step.help} Сканирование начнётся через 3 секунды.`
+      : "Калибровка завершена.",
+  );
 }
 
 function saveCalibrationGesture() {
@@ -520,15 +631,18 @@ function saveCalibrationGesture() {
   if (calibrationStepIndex < calibrationSteps.length) startCalibrationCountdown();
   else calibrationCountdown = 0;
   renderCalibration();
+  const nextStep = calibrationSteps[calibrationStepIndex];
   setFeedback(
-    calibrationStepIndex === calibrationSteps.length
-      ? "Калибровка завершена: персональные жесты сохранены в этом браузере."
-      : "Образец сохранён. Покажи следующий жест и сохрани его.",
+    nextStep
+      ? `Образец сохранён. Следующий жест: ${nextStep.name}. ${nextStep.help}`
+      : "Калибровка завершена: персональные жесты сохранены в этом браузере.",
   );
 }
 
 function setFeedback(text: string) {
+  if (feedbackText.textContent === text) return;
   feedbackText.textContent = text;
+  speakText(text);
 }
 function renderTerminal() {
   signalElement.textContent = currentSignal
@@ -565,17 +679,25 @@ function renderTerminal() {
   speedErrorsElement.textContent = String(speedErrors);
   speedBestElement.textContent = String(speedBest);
   speedRoundStatus.classList.toggle("hidden", !speedFinished);
+  startSpeed.classList.toggle("hidden", speedActive);
+  stopSpeed.classList.toggle("hidden", !speedActive);
+  oneMinuteButton.disabled = speedActive;
+  twoMinutesButton.disabled = speedActive;
+  threeMinutesButton.disabled = speedActive;
+  speedWordsButton.disabled = speedActive;
+  speedLettersButton.disabled = speedActive;
 }
 function chooseTrainingLetter() {
   trainingTarget = getRandomMorseLetter(trainingTarget.letter);
   trainingLetter.textContent = trainingTarget.letter;
   trainingCode.textContent = formatMorse(trainingTarget.code);
 }
-function chooseWord() {
+function chooseWord(): string {
   const available = WORD_BANK.filter((word) => word !== wordTarget);
   wordTarget = available[Math.floor(Math.random() * available.length)];
   wordTyped = "";
   wordTargetElement.textContent = wordTarget;
+  return wordTarget;
 }
 function chooseSpeedTarget() {
   const options =
@@ -592,6 +714,7 @@ function setSpeedChallenge(challenge: "words" | "letters") {
   speedChallenge = challenge;
   speedWordsButton.classList.toggle("active", challenge === "words");
   speedLettersButton.classList.toggle("active", challenge === "letters");
+  setFeedback(`В режиме скорости выбраны ${challenge === "words" ? "слова" : "буквы"}.`);
   if (!speedActive) {
     speedBest = loadSpeedBest();
     chooseSpeedTarget();
@@ -601,10 +724,12 @@ function setSpeedChallenge(challenge: "words" | "letters") {
 function setSpeedDuration(seconds: number) {
   if (speedActive) return;
   speedDuration = seconds;
+  const minutes = seconds / 60;
   oneMinuteButton.classList.toggle("active", seconds === 60);
   twoMinutesButton.classList.toggle("active", seconds === 120);
   threeMinutesButton.classList.toggle("active", seconds === 180);
-  startSpeed.textContent = `НАЧАТЬ ${seconds / 60}-МИНУТНЫЙ РАУНД`;
+  startSpeed.textContent = `НАЧАТЬ ${minutes}-МИНУТНЫЙ РАУНД`;
+  setFeedback(`Выбрано время: ${minutes} ${minutes === 1 ? "минута" : "минуты"}.`);
   if (!speedActive) {
     speedBest = loadSpeedBest();
     speedSeconds = seconds;
@@ -728,12 +853,10 @@ function setMode(
   calibrationModeButton.classList.toggle("active", calibrationMode);
   if (trainingMode) {
     chooseTrainingLetter();
-    setFeedback("Повтори код буквы и раскрой ладонь для проверки");
+    setFeedback(`Буква для тренировки: ${trainingTarget.letter}. Повтори её код и раскрой ладонь для проверки.`);
   } else if (wordMode) {
-    chooseWord();
-    setFeedback(
-      "Набери слово по одной букве и заверши каждую открытой ладонью",
-    );
+    setFeedback("Режим слов включён. Слушай целевое слово.");
+    speakText(`Твоё слово: ${chooseWord()}`);
   } else if (speedMode) {
     speedBest = loadSpeedBest();
     setFeedback("Выбери длительность и нажми «Начать раунд». ");
@@ -756,11 +879,10 @@ function finishLetter() {
     if (currentSignal === trainingTarget.code) {
       trainingScoreValue++;
       flashSuccess();
-      setFeedback(
-        `Верно! «${trainingTarget.letter}» — ${trainingTarget.code.replaceAll(".", "·").replaceAll("-", "—")}. Следующая буква.`,
-      );
+      const completedLetter = trainingTarget.letter;
       currentSignal = "";
       chooseTrainingLetter();
+      setFeedback(`Верно: ${completedLetter}. Следующая буква: ${trainingTarget.letter}.`);
       renderTerminal();
       return;
     }
@@ -808,8 +930,9 @@ function finishLetter() {
       flashSuccess();
       if (wordTyped === wordTarget) {
         wordScoreValue++;
-        setFeedback(`Верно! Слово «${wordTarget}» набрано. Следующее слово.`);
-        chooseWord();
+        const completedWord = wordTarget;
+        const nextWord = chooseWord();
+        setFeedback(`Верно! Слово «${completedWord}» набрано. Следующее слово: ${nextWord}.`);
       } else setFeedback(`Верно: «${letter}». Продолжай слово.`);
     } else {
       flashTerminal();
@@ -910,22 +1033,30 @@ function drawHand(hand: NormalizedLandmark[]) {
     context.fill();
   }
 }
+function scheduleVideoProcessing() {
+  if (videoFrameRequest !== null) return;
+  videoFrameRequest = requestAnimationFrame(() => {
+    videoFrameRequest = null;
+    processVideo();
+  });
+}
+
 function processVideo() {
   if (!handLandmarker || video.readyState < 2) {
-    requestAnimationFrame(processVideo);
+    scheduleVideoProcessing();
     return;
   }
 
   // requestAnimationFrame может вызываться чаще, чем камера выдаёт новые кадры.
   // Не анализируем один и тот же видеокадр повторно и пропускаем каждый второй новый.
   if (video.currentTime === lastVideoTime) {
-    requestAnimationFrame(processVideo);
+    scheduleVideoProcessing();
     return;
   }
   lastVideoTime = video.currentTime;
   receivedVideoFrames++;
   if (receivedVideoFrames % DETECTION_FRAME_INTERVAL !== 0) {
-    requestAnimationFrame(processVideo);
+    scheduleVideoProcessing();
     return;
   }
   const result = handLandmarker.detectForVideo(video, performance.now());
@@ -953,7 +1084,7 @@ function processVideo() {
         gestureState.textContent = "Считываю образец жеста";
         gestureHint.textContent = "Держи кисть неподвижно, затем сохрани жест";
       }
-      requestAnimationFrame(processVideo);
+      scheduleVideoProcessing();
       return;
     }
     const bothPalmsOpen =
@@ -998,7 +1129,7 @@ function processVideo() {
       gestureHint.textContent = "Убери или смени жест для следующего сигнала";
     }
   }
-  requestAnimationFrame(processVideo);
+  scheduleVideoProcessing();
 }
 async function enableCamera() {
   try {
@@ -1026,11 +1157,12 @@ async function enableCamera() {
       numHands: 2,
     });
     placeholder.classList.add("hidden");
+    stopCamera.classList.remove("hidden");
     cameraStatus.innerHTML = '<span class="status-dot"></span> КАМЕРА В ЭФИРЕ';
     gestureState.textContent = "Ищу руку";
     gestureHint.textContent = "Покажите жест";
     setFeedback("Камера включена. Подними большой палец для точки");
-    requestAnimationFrame(processVideo);
+    scheduleVideoProcessing();
   } catch (error) {
     startCamera.disabled = false;
     startCamera.textContent = "ПОВТОРИТЬ ДОСТУП";
@@ -1042,10 +1174,40 @@ async function enableCamera() {
     console.error(error);
   }
 }
+function disableCamera() {
+  if (videoFrameRequest !== null) {
+    cancelAnimationFrame(videoFrameRequest);
+    videoFrameRequest = null;
+  }
+  const stream = video.srcObject;
+  if (stream instanceof MediaStream) {
+    stream.getTracks().forEach((track) => track.stop());
+  }
+  video.srcObject = null;
+  handLandmarker?.close();
+  handLandmarker = null;
+  lastVideoTime = -1;
+  receivedVideoFrames = 0;
+  candidate = "none";
+  candidateFrames = 0;
+  latched = false;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  placeholder.classList.remove("hidden");
+  stopCamera.classList.add("hidden");
+  startCamera.disabled = false;
+  startCamera.textContent = "ВКЛЮЧИТЬ КАМЕРУ";
+  cameraStatus.innerHTML = '<span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА';
+  gestureState.textContent = "Ожидаю жест";
+  gestureHint.textContent = "Покажите руку в камеру";
+  setFeedback("Камера выключена");
+}
 startCamera.addEventListener("click", enableCamera);
+stopCamera.addEventListener("click", disableCamera);
 clearButton.addEventListener("click", () => {
   currentSignal = "";
-  setFeedback("Текущий сигнал сброшен");
+  currentMessage = "";
+  acceptedSignals = 0;
+  setFeedback("Текущий сигнал и сообщение очищены");
   renderTerminal();
 });
 transmitModeButton.addEventListener("click", () => setMode("transmit"));
@@ -1054,6 +1216,7 @@ wordModeButton.addEventListener("click", () => setMode("words"));
 speedModeButton.addEventListener("click", () => setMode("speed"));
 calibrationModeButton.addEventListener("click", () => setMode("calibration"));
 startSpeed.addEventListener("click", startSpeedRound);
+stopSpeed.addEventListener("click", finishSpeedRound);
 speedWordsButton.addEventListener("click", () => setSpeedChallenge("words"));
 speedLettersButton.addEventListener("click", () =>
   setSpeedChallenge("letters"),
