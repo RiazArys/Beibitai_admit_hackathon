@@ -87,6 +87,13 @@ function isThumbRaised(hand: NormalizedLandmark[]): boolean {
   );
 }
 
+function isThumbOpen(hand: NormalizedLandmark[]): boolean {
+  // У раскрытой ладони большой палец часто направлен в сторону, а не вверх.
+  // Проверка `isThumbRaised` для него слишком строгая: она нужна для точки,
+  // но не должна мешать жесту «готово».
+  return jointAngle(hand[2], hand[3], hand[4]) > 140;
+}
+
 /** Возвращает состояние каждого пальца с теми же порогами, что у классификатора. */
 export function getFingerStates(hand: NormalizedLandmark[]): FingerStates {
   return {
@@ -136,7 +143,15 @@ export function classifyHandGesture(hand: NormalizedLandmark[]): HandGesture {
     !pinkyRaised
   )
     return "space";
-  if (thumbRaised && indexRaised && middleRaised && ringRaised && pinkyRaised)
+  // Для завершения буквы достаточно четырёх выпрямленных пальцев и прямого
+  // большого. Его высоту не учитываем — ладонь можно держать под углом.
+  if (
+    isThumbOpen(hand) &&
+    indexRaised &&
+    middleRaised &&
+    ringRaised &&
+    pinkyRaised
+  )
     return "open";
   if (
     !thumbRaised &&
