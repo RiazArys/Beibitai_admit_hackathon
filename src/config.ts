@@ -1,5 +1,5 @@
 /** Общие настройки поведения приложения. */
-export const HOLD_MS = 500;
+export const HOLD_MS = 250;
 export const FLASH_MS = 480;
 export const ROUND_DURATION_SECONDS = 60;
 
