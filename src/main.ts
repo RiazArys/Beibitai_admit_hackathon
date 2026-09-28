@@ -281,6 +281,8 @@ let calibrationMode = false;
 let calibrationStepIndex = 0;
 let calibrationSamples: number[][] = [];
 let calibrationTemplates: CalibrationTemplates = loadCalibrationTemplates();
+let calibrationCountdown = 3;
+let calibrationCountdownInterval: number | undefined;
 // История нужна только в текущем сеансе: после обновления страницы она очищается.
 localStorage.removeItem("morsemotion-transmissions");
 
@@ -356,17 +358,37 @@ function renderCalibration() {
   calibrationIcon.textContent = step.icon;
   calibrationName.textContent = step.name;
   calibrationHelp.textContent = step.help;
-  calibrationSamplesElement.textContent = calibrationSamples.length
-    ? `СЧИТАНО КАДРОВ: ${calibrationSamples.length} — МОЖНО СОХРАНЯТЬ`
-    : "ПОКАЖИ ЖЕСТ В КАМЕРУ";
+  calibrationSamplesElement.textContent =
+    calibrationCountdown > 0
+      ? `ПРИГОТОВЬСЯ: СКАНИРОВАНИЕ ЧЕРЕЗ ${calibrationCountdown} СЕК.`
+      : calibrationSamples.length
+        ? `СЧИТАНО КАДРОВ: ${calibrationSamples.length} — МОЖНО СОХРАНЯТЬ`
+        : "СКАНИРУЮ ЖЕСТ — ДЕРЖИ РУКУ В КАДРЕ";
   saveCalibration.textContent = "СОХРАНИТЬ ЖЕСТ";
+}
+
+function startCalibrationCountdown() {
+  if (calibrationCountdownInterval) {
+    window.clearInterval(calibrationCountdownInterval);
+  }
+  calibrationCountdown = 3;
+  calibrationCountdownInterval = window.setInterval(() => {
+    calibrationCountdown--;
+    renderCalibration();
+    if (calibrationCountdown <= 0 && calibrationCountdownInterval) {
+      window.clearInterval(calibrationCountdownInterval);
+      calibrationCountdownInterval = undefined;
+      setFeedback("Сканирование началось. Держи жест неподвижно.");
+    }
+  }, 1000);
 }
 
 function beginCalibration() {
   calibrationStepIndex = 0;
   calibrationSamples = [];
+  startCalibrationCountdown();
   renderCalibration();
-  setFeedback("Покажи первый жест перед камерой. Когда появятся кадры, нажми «Сохранить жест».");
+  setFeedback("Подготовь первый жест. Через 3 секунды начнётся сканирование.");
 }
 
 function saveCalibrationGesture() {
@@ -385,6 +407,8 @@ function saveCalibrationGesture() {
   } catch {}
   calibrationStepIndex++;
   calibrationSamples = [];
+  if (calibrationStepIndex < calibrationSteps.length) startCalibrationCountdown();
+  else calibrationCountdown = 0;
   renderCalibration();
   setFeedback(
     calibrationStepIndex === calibrationSteps.length
@@ -527,6 +551,10 @@ function setMode(
   wordMode = mode === "words";
   speedMode = mode === "speed";
   calibrationMode = mode === "calibration";
+  if (!calibrationMode && calibrationCountdownInterval) {
+    window.clearInterval(calibrationCountdownInterval);
+    calibrationCountdownInterval = undefined;
+  }
   currentSignal = "";
   transmitMode.classList.toggle(
     "hidden",
@@ -758,7 +786,10 @@ function processVideo() {
   } else {
     drawHand(hand);
     if (calibrationMode) {
-      if (calibrationStepIndex < calibrationSteps.length) {
+      if (
+        calibrationStepIndex < calibrationSteps.length &&
+        calibrationCountdown <= 0
+      ) {
         calibrationSamples = [
           ...calibrationSamples.slice(-17),
           getHandSignature(hand),
