@@ -106,6 +106,7 @@ app.innerHTML = `
         </div>
         <div class="training-mode hidden" id="speedMode">
           <div class="card-label">РАУНД НА СКОРОСТЬ <span id="speedTimer">02:00</span></div>
+          <div class="speed-type"><button class="speed-type-button" id="oneMinute" type="button">1 МИН</button><button class="speed-type-button active" id="twoMinutes" type="button">2 МИН</button><button class="speed-type-button" id="threeMinutes" type="button">3 МИН</button></div>
           <div class="speed-type"><button class="speed-type-button active" id="speedWords" type="button">СЛОВА</button><button class="speed-type-button" id="speedLetters" type="button">БУКВЫ</button></div>
           <p class="training-kicker">НАБЕРИ КАК МОЖНО БОЛЬШЕ СЛОВ</p>
           <strong class="word-target" id="speedWord">ГОТОВ?</strong>
@@ -197,6 +198,12 @@ const speedWordsButton =
   document.querySelector<HTMLButtonElement>("#speedWords")!;
 const speedLettersButton =
   document.querySelector<HTMLButtonElement>("#speedLetters")!;
+const oneMinuteButton =
+  document.querySelector<HTMLButtonElement>("#oneMinute")!;
+const twoMinutesButton =
+  document.querySelector<HTMLButtonElement>("#twoMinutes")!;
+const threeMinutesButton =
+  document.querySelector<HTMLButtonElement>("#threeMinutes")!;
 
 let handLandmarker: HandLandmarker | null = null;
 let currentSignal = "";
@@ -228,6 +235,7 @@ let speedTarget = "";
 let speedTyped = "";
 let speedInterval: number | undefined;
 let speedChallenge: "words" | "letters" = "words";
+let speedDuration = ROUND_DURATION_SECONDS;
 // История нужна только в текущем сеансе: после обновления страницы она очищается.
 localStorage.removeItem("morsemotion-transmissions");
 
@@ -298,10 +306,21 @@ function setSpeedChallenge(challenge: "words" | "letters") {
     renderTerminal();
   }
 }
+function setSpeedDuration(seconds: number) {
+  speedDuration = seconds;
+  oneMinuteButton.classList.toggle("active", seconds === 60);
+  twoMinutesButton.classList.toggle("active", seconds === 120);
+  threeMinutesButton.classList.toggle("active", seconds === 180);
+  startSpeed.textContent = `НАЧАТЬ ${seconds / 60}-МИНУТНЫЙ РАУНД`;
+  if (!speedActive) {
+    speedSeconds = seconds;
+    renderTerminal();
+  }
+}
 function startSpeedRound() {
   if (speedInterval) window.clearInterval(speedInterval);
   speedActive = true;
-  speedSeconds = ROUND_DURATION_SECONDS;
+  speedSeconds = speedDuration;
   speedCorrect = 0;
   speedErrors = 0;
   currentSignal = "";
@@ -677,6 +696,9 @@ speedWordsButton.addEventListener("click", () => setSpeedChallenge("words"));
 speedLettersButton.addEventListener("click", () =>
   setSpeedChallenge("letters"),
 );
+oneMinuteButton.addEventListener("click", () => setSpeedDuration(60));
+twoMinutesButton.addEventListener("click", () => setSpeedDuration(120));
+threeMinutesButton.addEventListener("click", () => setSpeedDuration(180));
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();
