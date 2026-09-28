@@ -65,6 +65,59 @@
     monospace;
   letter-spacing: 5px;
 }
+.speed-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 20px 0;
+}
+.speed-stat {
+  padding: 11px 5px;
+  border: 1px solid #334d5d;
+  border-radius: 4px;
+  background: #0c1e2c;
+}
+.speed-stat span {
+  display: block;
+  color: #9bb2c2;
+  font:
+    9px "DM Mono",
+    monospace;
+  letter-spacing: 0.8px;
+}
+.speed-stat strong {
+  display: block;
+  margin-top: 7px;
+  color: #f4fbff;
+  font:
+    700 26px "DM Mono",
+    monospace;
+}
+.speed-stat.correct strong {
+  color: #63e6c5;
+}
+.speed-stat.errors strong {
+  color: #ff8a8a;
+}
+.speed-stat.best strong {
+  color: #f2cb6b;
+}
+.speed-start {
+  width: 100%;
+  padding: 15px 10px;
+  border: 1px solid #63e6c5;
+  border-radius: 4px;
+  background: #63e6c5;
+  color: #08221a;
+  font:
+    800 11px "DM Mono",
+    monospace;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+}
+.speed-start:hover {
+  background: #99f6dc;
+}
 
 .mode-switch {
   display: flex;

@@ -109,8 +109,12 @@ app.innerHTML = `
           <strong class="word-target" id="speedWord">ГОТОВ?</strong>
           <div class="word-signal"><span>ТЕКУЩИЙ СИГНАЛ</span><strong id="speedSignal">_</strong></div>
           <div class="training-progress"><span>НАБРАНО</span><strong id="speedInput">_</strong></div>
-          <p class="training-help" id="speedStats">Верно: 0 · Ошибки: 0 · Рекорд: 0</p>
-          <button class="clear-button" id="startSpeed" type="button">НАЧАТЬ 60-СЕКУНДНЫЙ РАУНД</button>
+          <div class="speed-stats">
+            <div class="speed-stat correct"><span>ВЕРНО</span><strong id="speedCorrect">0</strong></div>
+            <div class="speed-stat errors"><span>ОШИБКИ</span><strong id="speedErrors">0</strong></div>
+            <div class="speed-stat best"><span>РЕКОРД</span><strong id="speedBest">0</strong></div>
+          </div>
+          <button class="speed-start" id="startSpeed" type="button">НАЧАТЬ 60-СЕКУНДНЫЙ РАУНД</button>
         </div>
       </aside>
       <aside class="alphabet-card"><img src="${morseChart}" alt="Справочная таблица кириллической азбуки Морзе" /></aside>
@@ -182,7 +186,10 @@ const speedTimer = document.querySelector<HTMLElement>("#speedTimer")!;
 const speedWord = document.querySelector<HTMLElement>("#speedWord")!;
 const speedSignal = document.querySelector<HTMLElement>("#speedSignal")!;
 const speedInput = document.querySelector<HTMLElement>("#speedInput")!;
-const speedStats = document.querySelector<HTMLElement>("#speedStats")!;
+const speedCorrectElement =
+  document.querySelector<HTMLElement>("#speedCorrect")!;
+const speedErrorsElement = document.querySelector<HTMLElement>("#speedErrors")!;
+const speedBestElement = document.querySelector<HTMLElement>("#speedBest")!;
 const startSpeed = document.querySelector<HTMLButtonElement>("#startSpeed")!;
 
 let handLandmarker: HandLandmarker | null = null;
@@ -251,7 +258,9 @@ function renderTerminal() {
   speedWord.textContent = speedActive ? speedTarget : "ГОТОВ?";
   speedSignal.textContent = currentSignal ? formatMorse(currentSignal) : "_";
   speedInput.textContent = speedTyped || "_";
-  speedStats.textContent = `Верно: ${speedCorrect} · Ошибки: ${speedErrors} · Рекорд: ${speedBest}`;
+  speedCorrectElement.textContent = String(speedCorrect);
+  speedErrorsElement.textContent = String(speedErrors);
+  speedBestElement.textContent = String(speedBest);
 }
 function chooseTrainingLetter() {
   trainingTarget = getRandomMorseLetter(trainingTarget.letter);
