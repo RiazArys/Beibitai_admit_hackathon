@@ -264,7 +264,9 @@ let speedChallenge: "words" | "letters" = "words";
 let speedDuration = ROUND_DURATION_SECONDS;
 type CalibrationGesture = Exclude<HandGesture, "none">;
 type CalibrationTemplates = Partial<Record<CalibrationGesture, number[]>>;
-const CALIBRATION_STORAGE_KEY = "morsemotion-gesture-calibration";
+// Версия 2: скелет нормализуется по повороту ладони, поэтому старые образцы
+// намеренно не используются — их нужно записать заново.
+const CALIBRATION_STORAGE_KEY = "morsemotion-gesture-calibration-v2";
 const calibrationSteps: Array<{
   gesture: CalibrationGesture;
   name: string;
@@ -304,15 +306,23 @@ function loadCalibrationTemplates(): CalibrationTemplates {
 
 function getHandSignature(hand: NormalizedLandmark[]): number[] {
   const wrist = hand[0];
-  const scale = Math.max(
-    Math.hypot(hand[9].x - wrist.x, hand[9].y - wrist.y, hand[9].z - wrist.z),
-    0.01,
-  );
-  return hand.flatMap((point) => [
-    (point.x - wrist.x) / scale,
-    (point.y - wrist.y) / scale,
-    (point.z - wrist.z) / scale,
-  ]);
+  const palm = {
+    x: hand[9].x - wrist.x,
+    y: hand[9].y - wrist.y,
+    z: hand[9].z - wrist.z,
+  };
+  const scale = Math.max(Math.hypot(palm.x, palm.y, palm.z), 0.01);
+  const angle = Math.atan2(palm.y, palm.x);
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  // Сохраняем не кадр, а форму скелета. Поворот ладони приводим к одному
+  // направлению, поэтому одинаковый жест не «ломается», если наклонить руку.
+  return hand.flatMap((point) => {
+    const x = (point.x - wrist.x) / scale;
+    const y = (point.y - wrist.y) / scale;
+    return [x * cos + y * sin, -x * sin + y * cos, (point.z - wrist.z) / scale];
+  });
 }
 
 function averageSignatures(samples: number[][]): number[] {
@@ -323,7 +333,7 @@ function averageSignatures(samples: number[][]): number[] {
 
 function getCalibratedGesture(hand: NormalizedLandmark[]): HandGesture | null {
   const signature = getHandSignature(hand);
-  const match = (Object.entries(calibrationTemplates) as Array<
+  const matches = (Object.entries(calibrationTemplates) as Array<
     [CalibrationGesture, number[]]
   >)
     .map(([gesture, template]) => ({
@@ -333,10 +343,14 @@ function getCalibratedGesture(hand: NormalizedLandmark[]): HandGesture | null {
           template.length,
       ),
     }))
-    .sort((first, second) => first.distance - second.distance)[0];
+    .sort((first, second) => first.distance - second.distance);
+  const [match, nextMatch] = matches;
 
-  // Шаблон применяется только при близком совпадении: случайная поза не станет командой.
-  return match && match.distance < 0.34 ? match.gesture : null;
+  // Принимаем только очень близкий и однозначный шаблон. Это не даёт похожей
+  // случайной позе превратиться в команду.
+  return match && match.distance < 0.22 && (!nextMatch || match.distance < nextMatch.distance * 0.86)
+    ? match.gesture
+    : null;
 }
 
 function currentHandGesture(hand: NormalizedLandmark[]): HandGesture {
