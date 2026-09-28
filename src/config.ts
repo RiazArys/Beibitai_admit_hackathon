@@ -3,7 +3,7 @@ export const HOLD_MS = 300;
 /** Одинаковая поза должна держаться несколько кадров подряд, иначе это шум камеры. */
 export const MIN_STABLE_GESTURE_FRAMES = 5;
 export const CAMERA_FRAME_RATE = 30;
-/** MediaPipe анализирует каждый второй новый кадр камеры: около 15 проверок в секунду. */
+/** MediaPipe анализирует каждый новый кадр камеры: до 30 проверок в секунду. */
 export const DETECTION_FRAME_INTERVAL = 1;
 export const FLASH_MS = 480;
 export const ROUND_DURATION_SECONDS = 60;
