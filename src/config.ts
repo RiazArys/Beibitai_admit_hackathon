@@ -6,7 +6,7 @@ export const CAMERA_FRAME_RATE = 30;
 /** MediaPipe анализирует каждый новый кадр камеры: до 30 проверок в секунду. */
 export const DETECTION_FRAME_INTERVAL = 1;
 export const FLASH_MS = 480;
-export const ROUND_DURATION_SECONDS = 60;
+export const ROUND_DURATION_SECONDS = 120;
 
 /** Локальные статические файлы: на деплое не зависят от внешних CDN. */
 export const MEDIAPIPE_WASM_URL = "/wasm";

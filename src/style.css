@@ -71,6 +71,29 @@
   gap: 8px;
   margin: 20px 0;
 }
+.speed-type {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  margin: 13px 0 18px;
+}
+.speed-type-button {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #385265;
+  border-radius: 3px;
+  background: #0b1826;
+  color: #a6bbc9;
+  font:
+    700 9px "DM Mono",
+    monospace;
+  cursor: pointer;
+}
+.speed-type-button.active {
+  background: #193943;
+  border-color: #63e6c5;
+  color: #63e6c5;
+}
 .speed-stat {
   padding: 11px 5px;
   border: 1px solid #334d5d;

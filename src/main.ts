@@ -20,6 +20,7 @@ import {
   HOLD_MS,
   MEDIAPIPE_WASM_URL,
   MIN_STABLE_GESTURE_FRAMES,
+  ROUND_DURATION_SECONDS,
   CAMERA_FRAME_RATE,
   DETECTION_FRAME_INTERVAL,
 } from "./config";
@@ -104,7 +105,8 @@ app.innerHTML = `
           <button class="clear-button" id="exitWords" type="button">ВЕРНУТЬСЯ К РАДИОГРАММЕ</button>
         </div>
         <div class="training-mode hidden" id="speedMode">
-          <div class="card-label">РАУНД НА СКОРОСТЬ <span id="speedTimer">01:00</span></div>
+          <div class="card-label">РАУНД НА СКОРОСТЬ <span id="speedTimer">02:00</span></div>
+          <div class="speed-type"><button class="speed-type-button active" id="speedWords" type="button">СЛОВА</button><button class="speed-type-button" id="speedLetters" type="button">БУКВЫ</button></div>
           <p class="training-kicker">НАБЕРИ КАК МОЖНО БОЛЬШЕ СЛОВ</p>
           <strong class="word-target" id="speedWord">ГОТОВ?</strong>
           <div class="word-signal"><span>ТЕКУЩИЙ СИГНАЛ</span><strong id="speedSignal">_</strong></div>
@@ -114,7 +116,7 @@ app.innerHTML = `
             <div class="speed-stat errors"><span>ОШИБКИ</span><strong id="speedErrors">0</strong></div>
             <div class="speed-stat best"><span>РЕКОРД</span><strong id="speedBest">0</strong></div>
           </div>
-          <button class="speed-start" id="startSpeed" type="button">НАЧАТЬ 60-СЕКУНДНЫЙ РАУНД</button>
+          <button class="speed-start" id="startSpeed" type="button">НАЧАТЬ 2-МИНУТНЫЙ РАУНД</button>
         </div>
       </aside>
       <aside class="alphabet-card"><img src="${morseChart}" alt="Справочная таблица кириллической азбуки Морзе" /></aside>
@@ -191,6 +193,10 @@ const speedCorrectElement =
 const speedErrorsElement = document.querySelector<HTMLElement>("#speedErrors")!;
 const speedBestElement = document.querySelector<HTMLElement>("#speedBest")!;
 const startSpeed = document.querySelector<HTMLButtonElement>("#startSpeed")!;
+const speedWordsButton =
+  document.querySelector<HTMLButtonElement>("#speedWords")!;
+const speedLettersButton =
+  document.querySelector<HTMLButtonElement>("#speedLetters")!;
 
 let handLandmarker: HandLandmarker | null = null;
 let currentSignal = "";
@@ -214,13 +220,14 @@ let wordTarget = "МОРЗЕ";
 let wordTyped = "";
 let speedMode = false;
 let speedActive = false;
-let speedSeconds = 60;
+let speedSeconds = ROUND_DURATION_SECONDS;
 let speedCorrect = 0;
 let speedErrors = 0;
 let speedBest = 0;
 let speedTarget = "";
 let speedTyped = "";
 let speedInterval: number | undefined;
+let speedChallenge: "words" | "letters" = "words";
 // История нужна только в текущем сеансе: после обновления страницы она очищается.
 localStorage.removeItem("morsemotion-transmissions");
 
@@ -254,7 +261,7 @@ function renderTerminal() {
   wordSignal.textContent = currentSignal
     ? currentSignal.replaceAll(".", "·").replaceAll("-", "—")
     : "_";
-  speedTimer.textContent = `00:${String(speedSeconds).padStart(2, "0")}`;
+  speedTimer.textContent = `${String(Math.floor(speedSeconds / 60)).padStart(2, "0")}:${String(speedSeconds % 60).padStart(2, "0")}`;
   speedWord.textContent = speedActive ? speedTarget : "ГОТОВ?";
   speedSignal.textContent = currentSignal ? formatMorse(currentSignal) : "_";
   speedInput.textContent = speedTyped || "_";
@@ -273,21 +280,32 @@ function chooseWord() {
   wordTyped = "";
   wordTargetElement.textContent = wordTarget;
 }
-function chooseSpeedWord() {
-  const options = WORD_BANK.filter(
-    (word) => word !== speedTarget && word.length <= 8,
-  );
-  speedTarget = options[Math.floor(Math.random() * options.length)];
+function chooseSpeedTarget() {
+  const options =
+    speedChallenge === "letters"
+      ? Object.values(MORSE_TO_CYRILLIC)
+      : WORD_BANK.filter((word) => word.length <= 8);
+  const filtered = options.filter((item) => item !== speedTarget);
+  speedTarget = filtered[Math.floor(Math.random() * filtered.length)];
   speedTyped = "";
+}
+function setSpeedChallenge(challenge: "words" | "letters") {
+  speedChallenge = challenge;
+  speedWordsButton.classList.toggle("active", challenge === "words");
+  speedLettersButton.classList.toggle("active", challenge === "letters");
+  if (!speedActive) {
+    chooseSpeedTarget();
+    renderTerminal();
+  }
 }
 function startSpeedRound() {
   if (speedInterval) window.clearInterval(speedInterval);
   speedActive = true;
-  speedSeconds = 60;
+  speedSeconds = ROUND_DURATION_SECONDS;
   speedCorrect = 0;
   speedErrors = 0;
   currentSignal = "";
-  chooseSpeedWord();
+  chooseSpeedTarget();
   speedInterval = window.setInterval(() => {
     speedSeconds--;
     if (speedSeconds <= 0) {
@@ -301,13 +319,13 @@ function startSpeedRound() {
         } catch {}
       }
       setFeedback(
-        `Раунд завершён: ${speedCorrect} слов, ошибок: ${speedErrors}. Нажми «Начать», чтобы повторить.`,
+        `Раунд завершён: ${speedCorrect} ${speedChallenge === "letters" ? "букв" : "слов"}, ошибок: ${speedErrors}. Нажми «Начать», чтобы повторить.`,
       );
     }
     renderTerminal();
   }, 1000);
   setFeedback(
-    "Раунд начался! Набирай слово по буквам и заверши каждую ладонью.",
+    `Раунд начался! Набирай ${speedChallenge === "letters" ? "буквы" : "слова"} и заверши каждую ладонью.`,
   );
   renderTerminal();
 }
@@ -409,7 +427,7 @@ function finishLetter() {
       flashSuccess();
       if (speedTyped === speedTarget) {
         speedCorrect++;
-        chooseSpeedWord();
+        chooseSpeedTarget();
         setFeedback("Слово принято! Следующее слово.");
       } else setFeedback(`Верно: «${letter}». Продолжай слово.`);
     } else {
@@ -655,6 +673,10 @@ trainingModeButton.addEventListener("click", () => setMode("training"));
 wordModeButton.addEventListener("click", () => setMode("words"));
 speedModeButton.addEventListener("click", () => setMode("speed"));
 startSpeed.addEventListener("click", startSpeedRound);
+speedWordsButton.addEventListener("click", () => setSpeedChallenge("words"));
+speedLettersButton.addEventListener("click", () =>
+  setSpeedChallenge("letters"),
+);
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();
