@@ -19,6 +19,7 @@ import {
   HAND_LANDMARKER_MODEL_URL,
   HOLD_MS,
   MEDIAPIPE_WASM_URL,
+  MIN_STABLE_GESTURE_FRAMES,
 } from "./config";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -189,6 +190,7 @@ type AppGesture = HandGesture | "reset" | "send";
 
 let candidate: AppGesture = "none";
 let candidateSince = 0;
+let candidateFrames = 0;
 let latched = false;
 let acceptedSignals = 0;
 let transmissions: string[] = [];
@@ -527,6 +529,7 @@ function processVideo() {
     setFeedback("Поднеси руку в кадр: должны быть видны все пальцы");
     candidate = "none";
     latched = false;
+    candidateFrames = 0;
     context.clearRect(0, 0, canvas.width, canvas.height);
   } else {
     drawHand(hand);
@@ -556,9 +559,17 @@ function processVideo() {
     if (next !== candidate) {
       candidate = next;
       candidateSince = now;
+      candidateFrames = 1;
       latched = false;
+    } else {
+      candidateFrames++;
     }
-    if (next !== "none" && !latched && now - candidateSince > HOLD_MS) {
+    if (
+      next !== "none" &&
+      !latched &&
+      candidateFrames >= MIN_STABLE_GESTURE_FRAMES &&
+      now - candidateSince > HOLD_MS
+    ) {
       acceptGesture(next);
       latched = true;
       gestureHint.textContent = "Убери или смени жест для следующего сигнала";
