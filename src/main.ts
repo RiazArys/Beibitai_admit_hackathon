@@ -36,6 +36,25 @@ app.innerHTML = `
         <span class="brand-mark"><i></i><i></i><i></i></span>
         <span>MORSE<span>MOTION</span></span>
       </a>
+      <div class="topbar-tools">
+        <div class="appearance-control" role="group" aria-label="Тема оформления">
+          <span class="appearance-label">ТЕМА</span>
+          <div class="theme-switcher">
+            <button class="theme-button active" data-theme="dark" type="button" aria-pressed="true" aria-label="Тёмная тема" title="Тёмная тема">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.8 12.8A7.1 7.1 0 0 1 7.2 3.2a7.4 7.4 0 1 0 9.6 9.6Z" /></svg>
+              <span>Тёмная</span>
+            </button>
+            <button class="theme-button" data-theme="light" type="button" aria-pressed="false" aria-label="Светлая тема" title="Светлая тема">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.5" /><path d="M10 1.8v2M10 16.2v2M18.2 10h-2M3.8 10h-2m14-5.8-1.4 1.4M5.6 14.4l-1.4 1.4m11.6 0-1.4-1.4M5.6 5.6 4.2 4.2" /></svg>
+              <span>Светлая</span>
+            </button>
+          </div>
+        </div>
+        <button class="a11y-button" id="accessibilityToggle" type="button" aria-pressed="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10s2.8-5 8-5 8 5 8 5-2.8 5-8 5-8-5-8-5Z" /><circle cx="10" cy="10" r="2.1" /><path d="m4 17 12-14" class="a11y-slash" /></svg>
+          <span>Доступность</span>
+        </button>
+      </div>
       <div class="top-status" id="cameraStatus"><span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА</div>
     </header>
 
@@ -84,7 +103,7 @@ app.innerHTML = `
           <div class="decoded" id="decoded">_ _ _</div>
         </div>
         <div class="message"><small>СООБЩЕНИЕ</small><strong id="message">_ _ _</strong></div>
-        <button class="clear-button" id="clearSignal" type="button">СБРОСИТЬ СИГНАЛ</button>
+        <button class="clear-button" id="clearSignal" type="button" aria-label="Очистить текущий сигнал и сообщение">ОЧИСТИТЬ СООБЩЕНИЕ</button>
         <div class="history"><small>ПОСЛЕДНИЕ РАДИОГРАММЫ</small><div id="historyList"></div></div>
         </div>
         <div class="training-mode hidden" id="trainingMode">
@@ -159,6 +178,63 @@ app.innerHTML = `
     </section>
   </main>
 `;
+
+const themeButtons = [...document.querySelectorAll<HTMLButtonElement>(".theme-button")];
+const accessibilityToggle = document.querySelector<HTMLButtonElement>("#accessibilityToggle")!;
+
+function applyTheme(theme: "dark" | "light") {
+  document.body.dataset.theme = theme;
+  themeButtons.forEach((button) => {
+    const isActive = button.dataset.theme === theme;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  localStorage.setItem("morsemotion-theme", theme);
+}
+
+function speakText(text: string) {
+  if (!document.body.classList.contains("accessibility-mode") || !("speechSynthesis" in window)) {
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ru-RU";
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
+function setAccessibilityMode(enabled: boolean) {
+  document.body.classList.toggle("accessibility-mode", enabled);
+  accessibilityToggle.classList.toggle("active", enabled);
+  accessibilityToggle.setAttribute("aria-pressed", String(enabled));
+  accessibilityToggle.querySelector("span")!.textContent = enabled ? "Доступность: вкл." : "Доступность";
+  accessibilityToggle.setAttribute(
+    "aria-label",
+    enabled ? "Выключить режим доступности" : "Включить режим доступности",
+  );
+  accessibilityToggle.querySelector(".a11y-slash")?.classList.toggle("hidden", enabled);
+  localStorage.setItem("morsemotion-accessibility", String(enabled));
+  if (enabled) {
+    speakText("Включён режим для незрячих");
+  }
+}
+
+const storedTheme = localStorage.getItem("morsemotion-theme");
+const savedTheme: "dark" | "light" = storedTheme === "light" ? "light" : "dark";
+const savedAccessibilityMode = localStorage.getItem("morsemotion-accessibility") === "true";
+applyTheme(savedTheme);
+setAccessibilityMode(savedAccessibilityMode);
+
+if (themeButtons.length) {
+  themeButtons.forEach((button) => {
+    button.addEventListener("click", () => applyTheme(button.dataset.theme as "dark" | "light"));
+  });
+}
+
+accessibilityToggle.addEventListener("click", () => {
+  const enabled = !document.body.classList.contains("accessibility-mode");
+  setAccessibilityMode(enabled);
+});
 
 const video = document.querySelector<HTMLVideoElement>("#webcam")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#handCanvas")!;
@@ -455,7 +531,9 @@ function saveCalibrationGesture() {
 }
 
 function setFeedback(text: string) {
+  if (feedbackText.textContent === text) return;
   feedbackText.textContent = text;
+  speakText(text);
 }
 function renderTerminal() {
   signalElement.textContent = currentSignal
@@ -946,7 +1024,9 @@ async function enableCamera() {
 startCamera.addEventListener("click", enableCamera);
 clearButton.addEventListener("click", () => {
   currentSignal = "";
-  setFeedback("Текущий сигнал сброшен");
+  currentMessage = "";
+  acceptedSignals = 0;
+  setFeedback("Текущий сигнал и сообщение очищены");
   renderTerminal();
 });
 transmitModeButton.addEventListener("click", () => setMode("transmit"));
