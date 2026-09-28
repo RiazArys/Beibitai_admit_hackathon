@@ -53,6 +53,7 @@ app.innerHTML = `
       <button class="mode-button" id="trainingModeButton" type="button">ТРЕНИРОВКА БУКВ</button>
       <button class="mode-button" id="wordModeButton" type="button">СЛОВА</button>
       <button class="mode-button" id="speedModeButton" type="button">СКОРОСТЬ</button>
+      <button class="mode-button" id="calibrationModeButton" type="button">КАЛИБРОВКА</button>
     </nav>
 
     <section class="dashboard">
@@ -118,6 +119,16 @@ app.innerHTML = `
             <div class="speed-stat best"><span>РЕКОРД</span><strong id="speedBest">0</strong></div>
           </div>
           <button class="speed-start" id="startSpeed" type="button">НАЧАТЬ 2-МИНУТНЫЙ РАУНД</button>
+        </div>
+        <div class="training-mode hidden" id="calibrationMode">
+          <div class="card-label">PERSONAL CALIBRATION <span id="calibrationStep">1 / 5</span></div>
+          <p class="training-kicker">ПОКАЖИ ЖЕСТ ПЕРЕД КАМЕРОЙ</p>
+          <strong class="calibration-icon" id="calibrationIcon">👍</strong>
+          <strong class="calibration-name" id="calibrationName">ТОЧКА</strong>
+          <p class="training-help" id="calibrationHelp">Подними только большой палец, удерживай руку спокойно и сохрани образец.</p>
+          <div class="calibration-meter"><span id="calibrationSamples">КАМЕРА ЖДЁТ РУКУ</span></div>
+          <button class="speed-start" id="saveCalibration" type="button">СОХРАНИТЬ ЖЕСТ</button>
+          <button class="clear-button" id="resetCalibration" type="button">СБРОСИТЬ МОИ НАСТРОЙКИ</button>
         </div>
       </aside>
       <aside class="alphabet-card"><img src="${morseChart}" alt="Справочная таблица кириллической азбуки Морзе" /></aside>
@@ -204,6 +215,21 @@ const twoMinutesButton =
   document.querySelector<HTMLButtonElement>("#twoMinutes")!;
 const threeMinutesButton =
   document.querySelector<HTMLButtonElement>("#threeMinutes")!;
+const calibrationModeElement =
+  document.querySelector<HTMLElement>("#calibrationMode")!;
+const calibrationModeButton =
+  document.querySelector<HTMLButtonElement>("#calibrationModeButton")!;
+const calibrationStepElement =
+  document.querySelector<HTMLElement>("#calibrationStep")!;
+const calibrationIcon = document.querySelector<HTMLElement>("#calibrationIcon")!;
+const calibrationName = document.querySelector<HTMLElement>("#calibrationName")!;
+const calibrationHelp = document.querySelector<HTMLElement>("#calibrationHelp")!;
+const calibrationSamplesElement =
+  document.querySelector<HTMLElement>("#calibrationSamples")!;
+const saveCalibration =
+  document.querySelector<HTMLButtonElement>("#saveCalibration")!;
+const resetCalibration =
+  document.querySelector<HTMLButtonElement>("#resetCalibration")!;
 
 let handLandmarker: HandLandmarker | null = null;
 let currentSignal = "";
@@ -236,8 +262,136 @@ let speedTyped = "";
 let speedInterval: number | undefined;
 let speedChallenge: "words" | "letters" = "words";
 let speedDuration = ROUND_DURATION_SECONDS;
+type CalibrationGesture = Exclude<HandGesture, "none">;
+type CalibrationTemplates = Partial<Record<CalibrationGesture, number[]>>;
+const CALIBRATION_STORAGE_KEY = "morsemotion-gesture-calibration";
+const calibrationSteps: Array<{
+  gesture: CalibrationGesture;
+  name: string;
+  icon: string;
+  help: string;
+}> = [
+  { gesture: "dot", name: "ТОЧКА", icon: "👍", help: "Подними только большой палец." },
+  { gesture: "dash", name: "ТИРЕ", icon: "☝", help: "Подними только указательный палец." },
+  { gesture: "space", name: "ПРОБЕЛ", icon: "✌", help: "Подними большой и указательный пальцы." },
+  { gesture: "open", name: "ГОТОВО", icon: "✋", help: "Раскрой ладонь и выпрями все пальцы." },
+  { gesture: "fist", name: "УДАЛИТЬ", icon: "✊", help: "Сожми кисть в кулак." },
+];
+let calibrationMode = false;
+let calibrationStepIndex = 0;
+let calibrationSamples: number[][] = [];
+let calibrationTemplates: CalibrationTemplates = loadCalibrationTemplates();
 // История нужна только в текущем сеансе: после обновления страницы она очищается.
 localStorage.removeItem("morsemotion-transmissions");
+
+function loadCalibrationTemplates(): CalibrationTemplates {
+  try {
+    const saved = localStorage.getItem(CALIBRATION_STORAGE_KEY);
+    if (!saved) return {};
+    const parsed = JSON.parse(saved) as CalibrationTemplates;
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([, template]) =>
+          Array.isArray(template) && template.length === 63 && template.every(Number.isFinite),
+      ),
+    ) as CalibrationTemplates;
+  } catch {
+    return {};
+  }
+}
+
+function getHandSignature(hand: NormalizedLandmark[]): number[] {
+  const wrist = hand[0];
+  const scale = Math.max(
+    Math.hypot(hand[9].x - wrist.x, hand[9].y - wrist.y, hand[9].z - wrist.z),
+    0.01,
+  );
+  return hand.flatMap((point) => [
+    (point.x - wrist.x) / scale,
+    (point.y - wrist.y) / scale,
+    (point.z - wrist.z) / scale,
+  ]);
+}
+
+function averageSignatures(samples: number[][]): number[] {
+  return samples[0].map(
+    (_, index) => samples.reduce((sum, sample) => sum + sample[index], 0) / samples.length,
+  );
+}
+
+function getCalibratedGesture(hand: NormalizedLandmark[]): HandGesture | null {
+  const signature = getHandSignature(hand);
+  const match = (Object.entries(calibrationTemplates) as Array<
+    [CalibrationGesture, number[]]
+  >)
+    .map(([gesture, template]) => ({
+      gesture,
+      distance: Math.sqrt(
+        template.reduce((sum, value, index) => sum + (value - signature[index]) ** 2, 0) /
+          template.length,
+      ),
+    }))
+    .sort((first, second) => first.distance - second.distance)[0];
+
+  // Шаблон применяется только при близком совпадении: случайная поза не станет командой.
+  return match && match.distance < 0.34 ? match.gesture : null;
+}
+
+function currentHandGesture(hand: NormalizedLandmark[]): HandGesture {
+  return getCalibratedGesture(hand) ?? classifyHandGesture(hand);
+}
+
+function renderCalibration() {
+  const step = calibrationSteps[calibrationStepIndex];
+  if (!step) {
+    calibrationStepElement.textContent = "ГОТОВО";
+    calibrationIcon.textContent = "✓";
+    calibrationName.textContent = "ЖЕСТЫ СОХРАНЕНЫ";
+    calibrationHelp.textContent = "Теперь приложение учитывает форму твоей руки. При необходимости калибровку можно пройти заново.";
+    calibrationSamplesElement.textContent = "5 ИЗ 5 ЖЕСТОВ ГОТОВЫ";
+    saveCalibration.textContent = "НАЧАТЬ КАЛИБРОВКУ ЗАНОВО";
+    return;
+  }
+  calibrationStepElement.textContent = `${calibrationStepIndex + 1} / ${calibrationSteps.length}`;
+  calibrationIcon.textContent = step.icon;
+  calibrationName.textContent = step.name;
+  calibrationHelp.textContent = step.help;
+  calibrationSamplesElement.textContent = calibrationSamples.length
+    ? `СЧИТАНО КАДРОВ: ${calibrationSamples.length} — МОЖНО СОХРАНЯТЬ`
+    : "ПОКАЖИ ЖЕСТ В КАМЕРУ";
+  saveCalibration.textContent = "СОХРАНИТЬ ЖЕСТ";
+}
+
+function beginCalibration() {
+  calibrationStepIndex = 0;
+  calibrationSamples = [];
+  renderCalibration();
+  setFeedback("Покажи первый жест перед камерой. Когда появятся кадры, нажми «Сохранить жест».");
+}
+
+function saveCalibrationGesture() {
+  if (calibrationStepIndex >= calibrationSteps.length) {
+    beginCalibration();
+    return;
+  }
+  if (calibrationSamples.length < 8) {
+    setFeedback("Недостаточно данных: удерживай кисть в кадре, пока не будет минимум 8 кадров.");
+    return;
+  }
+  const step = calibrationSteps[calibrationStepIndex];
+  calibrationTemplates[step.gesture] = averageSignatures(calibrationSamples);
+  try {
+    localStorage.setItem(CALIBRATION_STORAGE_KEY, JSON.stringify(calibrationTemplates));
+  } catch {}
+  calibrationStepIndex++;
+  calibrationSamples = [];
+  renderCalibration();
+  setFeedback(
+    calibrationStepIndex === calibrationSteps.length
+      ? "Калибровка завершена: персональные жесты сохранены в этом браузере."
+      : "Образец сохранён. Покажи следующий жест и сохрани его.",
+  );
+}
 
 function setFeedback(text: string) {
   feedbackText.textContent = text;
@@ -366,25 +520,30 @@ function flashSuccess() {
     FLASH_MS,
   );
 }
-function setMode(mode: "transmit" | "training" | "words" | "speed") {
+function setMode(
+  mode: "transmit" | "training" | "words" | "speed" | "calibration",
+) {
   trainingMode = mode === "training";
   wordMode = mode === "words";
   speedMode = mode === "speed";
+  calibrationMode = mode === "calibration";
   currentSignal = "";
   transmitMode.classList.toggle(
     "hidden",
-    trainingMode || wordMode || speedMode,
+    trainingMode || wordMode || speedMode || calibrationMode,
   );
   trainingModeElement.classList.toggle("hidden", !trainingMode);
   wordModeElement.classList.toggle("hidden", !wordMode);
   speedModeElement.classList.toggle("hidden", !speedMode);
+  calibrationModeElement.classList.toggle("hidden", !calibrationMode);
   transmitModeButton.classList.toggle(
     "active",
-    !trainingMode && !wordMode && !speedMode,
+    !trainingMode && !wordMode && !speedMode && !calibrationMode,
   );
   trainingModeButton.classList.toggle("active", trainingMode);
   wordModeButton.classList.toggle("active", wordMode);
   speedModeButton.classList.toggle("active", speedMode);
+  calibrationModeButton.classList.toggle("active", calibrationMode);
   if (trainingMode) {
     chooseTrainingLetter();
     setFeedback("Повтори код буквы и раскрой ладонь для проверки");
@@ -397,7 +556,9 @@ function setMode(mode: "transmit" | "training" | "words" | "speed") {
     try {
       speedBest = Number(localStorage.getItem("morsemotion-best-speed") ?? 0);
     } catch {}
-    setFeedback("Нажми «Начать 60-секундный раунд». ");
+    setFeedback("Выбери длительность и нажми «Начать раунд». ");
+  } else if (calibrationMode) {
+    beginCalibration();
   } else setFeedback("Режим радиограммы включён. Наберите сообщение жестами");
   renderTerminal();
 }
@@ -596,21 +757,34 @@ function processVideo() {
     context.clearRect(0, 0, canvas.width, canvas.height);
   } else {
     drawHand(hand);
+    if (calibrationMode) {
+      if (calibrationStepIndex < calibrationSteps.length) {
+        calibrationSamples = [
+          ...calibrationSamples.slice(-17),
+          getHandSignature(hand),
+        ];
+        renderCalibration();
+        gestureState.textContent = "Считываю образец жеста";
+        gestureHint.textContent = "Держи кисть неподвижно, затем сохрани жест";
+      }
+      requestAnimationFrame(processVideo);
+      return;
+    }
     const bothPalmsOpen =
       result.landmarks.length >= 2 &&
       result.landmarks.every(
-        (detectedHand) => classifyHandGesture(detectedHand) === "open",
+        (detectedHand) => currentHandGesture(detectedHand) === "open",
       );
     const bothFists =
       result.landmarks.length >= 2 &&
       result.landmarks.every(
-        (detectedHand) => classifyHandGesture(detectedHand) === "fist",
+        (detectedHand) => currentHandGesture(detectedHand) === "fist",
       );
     const next: AppGesture = bothFists
       ? "send"
       : bothPalmsOpen
         ? "reset"
-        : classifyHandGesture(hand);
+        : currentHandGesture(hand);
     const now = performance.now();
     gestureState.textContent = getGestureLabel(next);
     gestureHint.textContent =
@@ -691,6 +865,7 @@ transmitModeButton.addEventListener("click", () => setMode("transmit"));
 trainingModeButton.addEventListener("click", () => setMode("training"));
 wordModeButton.addEventListener("click", () => setMode("words"));
 speedModeButton.addEventListener("click", () => setMode("speed"));
+calibrationModeButton.addEventListener("click", () => setMode("calibration"));
 startSpeed.addEventListener("click", startSpeedRound);
 speedWordsButton.addEventListener("click", () => setSpeedChallenge("words"));
 speedLettersButton.addEventListener("click", () =>
@@ -699,6 +874,15 @@ speedLettersButton.addEventListener("click", () =>
 oneMinuteButton.addEventListener("click", () => setSpeedDuration(60));
 twoMinutesButton.addEventListener("click", () => setSpeedDuration(120));
 threeMinutesButton.addEventListener("click", () => setSpeedDuration(180));
+saveCalibration.addEventListener("click", saveCalibrationGesture);
+resetCalibration.addEventListener("click", () => {
+  calibrationTemplates = {};
+  try {
+    localStorage.removeItem(CALIBRATION_STORAGE_KEY);
+  } catch {}
+  beginCalibration();
+  setFeedback("Персональные настройки удалены. Можешь записать новые жесты.");
+});
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();

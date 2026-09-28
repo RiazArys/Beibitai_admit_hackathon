@@ -141,6 +141,35 @@
 .speed-start:hover {
   background: #99f6dc;
 }
+.calibration-icon {
+  display: block;
+  margin: 13px 0 7px;
+  font-size: 74px;
+  line-height: 1;
+}
+.calibration-name {
+  display: block;
+  color: #f2f8fb;
+  font:
+    700 23px "DM Mono",
+    monospace;
+  letter-spacing: 2px;
+}
+.calibration-meter {
+  margin: 24px 0 14px;
+  padding: 11px;
+  border: 1px solid #315367;
+  background: #0f2534;
+  color: #63e6c5;
+  font:
+    700 10px "DM Mono",
+    monospace;
+  letter-spacing: 0.7px;
+}
+#resetCalibration {
+  width: 100%;
+  margin-top: 11px;
+}
 
 .mode-switch {
   display: flex;
@@ -1022,6 +1051,9 @@ button {
   }
   .gesture-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .mode-switch {
+    flex-wrap: wrap;
   }
   .feedback {
     align-items: flex-start;
