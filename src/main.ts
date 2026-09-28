@@ -340,7 +340,13 @@ function getCalibratedGesture(hand: NormalizedLandmark[]): HandGesture | null {
 }
 
 function currentHandGesture(hand: NormalizedLandmark[]): HandGesture {
-  return getCalibratedGesture(hand) ?? classifyHandGesture(hand);
+  // Базовые правила пальцев надёжнее для уже понятных поз. Персональный
+  // образец нужен только как запасной вариант для нестандартной формы руки,
+  // иначе похожий шаблон мог перебить корректно распознанный жест.
+  const defaultGesture = classifyHandGesture(hand);
+  return defaultGesture !== "none"
+    ? defaultGesture
+    : (getCalibratedGesture(hand) ?? "none");
 }
 
 function renderCalibration() {
