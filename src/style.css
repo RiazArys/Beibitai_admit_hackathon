@@ -141,6 +141,26 @@
 .speed-start:hover {
   background: #99f6dc;
 }
+.speed-stop {
+  width: 100%;
+  margin-top: 9px;
+  padding: 12px 10px;
+  border: 1px solid #a84e55;
+  border-radius: 4px;
+  background: #28171c;
+  color: #ff9a9f;
+  font: 800 11px "DM Mono", monospace;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+}
+.speed-stop:hover {
+  border-color: #f49a9e;
+  background: #3a1b20;
+}
+.speed-type-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .speed-round-status {
   margin: 0 0 13px;
   padding: 12px 8px;
@@ -1230,6 +1250,7 @@ body[data-theme="light"] .terminal-card,
 body[data-theme="light"] .gesture,
 body[data-theme="light"] .section-heading h2,
 body[data-theme="light"] .recognition-state,
+body[data-theme="light"] .word-target,
 body[data-theme="light"] .training-letter,
 body[data-theme="light"] .calibration-name,
 body[data-theme="light"] .decoded,
@@ -1396,6 +1417,14 @@ body[data-theme="light"] .speed-start:hover,
 body[data-theme="light"] .camera-button:hover {
   background: #096b58;
 }
+body[data-theme="light"] .speed-stop {
+  border-color: #bd6268;
+  background: #fff4f4;
+  color: #9b2833;
+}
+body[data-theme="light"] .speed-stop:hover {
+  background: #ffe8e9;
+}
 body[data-theme="light"] .result-panel {
   border-color: #63b39d;
   background: #e8f6f0;
@@ -1427,6 +1456,7 @@ body.accessibility-mode .speed-stat {
 }
 body.accessibility-mode .brand,
 body.accessibility-mode .hero h1,
+body.accessibility-mode .word-target,
 body.accessibility-mode .section-heading h2,
 body.accessibility-mode .mission-chip strong,
 body.accessibility-mode .gesture strong,
@@ -1457,6 +1487,7 @@ body.accessibility-mode .accuracy b {
 body.accessibility-mode .mode-button,
 body.accessibility-mode .speed-type-button,
 body.accessibility-mode .clear-button,
+body.accessibility-mode .speed-stop,
 body.accessibility-mode .theme-button,
 body.accessibility-mode .a11y-button {
   min-height: 44px;
@@ -1469,6 +1500,11 @@ body.accessibility-mode .mode-button.active,
 body.accessibility-mode .speed-type-button.active,
 body.accessibility-mode .theme-button.active,
 body.accessibility-mode .a11y-button.active {
+  border-color: #ff0;
+  background: #242400;
+  color: #ff0;
+}
+body.accessibility-mode .speed-stop {
   border-color: #ff0;
   background: #242400;
   color: #ff0;
@@ -1490,6 +1526,62 @@ body.accessibility-mode :focus-visible {
 body.accessibility-mode .scanner,
 body.accessibility-mode .pulse {
   animation: none;
+}
+.gesture[role="button"] {
+  cursor: pointer;
+}
+.gesture[role="button"]:hover {
+  transform: translateY(-2px);
+  border-color: #63e6c5;
+}
+.gesture[role="button"]:focus-visible {
+  outline: 3px solid #f2cb6b;
+  outline-offset: 3px;
+}
+body.accessibility-mode .gesture[role="button"]:focus-visible {
+  outline-color: #ff0;
+}
+body.accessibility-mode .gesture.active {
+  border: 2px solid #ff0;
+  background: #242400;
+  box-shadow: none;
+}
+body.accessibility-mode .gesture[role="button"] {
+  transition: none;
+}
+body.accessibility-mode .gesture[role="button"]:hover {
+  border-color: #ff0;
+}
+.camera-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.camera-stop-button {
+  margin: 10px 0 0 auto;
+  padding: 9px 12px;
+  border: 1px solid #a84e55;
+  border-radius: 3px;
+  background: transparent;
+  color: #f49a9e;
+  font: 700 10px "DM Mono", monospace;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+}
+.camera-stop-button:hover {
+  background: #3a1b20;
+  border-color: #f49a9e;
+}
+body[data-theme="light"] .camera-stop-button {
+  border-color: #bd6268;
+  color: #a22d36;
+}
+body[data-theme="light"] .camera-stop-button:hover {
+  background: #fff0f0;
+}
+body.accessibility-mode .camera-stop-button {
+  border: 2px solid #ff0;
+  background: #000;
+  color: #ff0;
 }
 @media (max-width: 760px) {
   .topbar {
