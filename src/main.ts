@@ -20,6 +20,8 @@ import {
   HOLD_MS,
   MEDIAPIPE_WASM_URL,
   MIN_STABLE_GESTURE_FRAMES,
+  CAMERA_FRAME_RATE,
+  DETECTION_FRAME_INTERVAL,
 } from "./config";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -191,6 +193,8 @@ type AppGesture = HandGesture | "reset" | "send";
 let candidate: AppGesture = "none";
 let candidateSince = 0;
 let candidateFrames = 0;
+let lastVideoTime = -1;
+let receivedVideoFrames = 0;
 let latched = false;
 let acceptedSignals = 0;
 let transmissions: string[] = [];
@@ -521,6 +525,19 @@ function processVideo() {
     requestAnimationFrame(processVideo);
     return;
   }
+
+  // requestAnimationFrame может вызываться чаще, чем камера выдаёт новые кадры.
+  // Не анализируем один и тот же видеокадр повторно и пропускаем каждый второй новый.
+  if (video.currentTime === lastVideoTime) {
+    requestAnimationFrame(processVideo);
+    return;
+  }
+  lastVideoTime = video.currentTime;
+  receivedVideoFrames++;
+  if (receivedVideoFrames % DETECTION_FRAME_INTERVAL !== 0) {
+    requestAnimationFrame(processVideo);
+    return;
+  }
   const result = handLandmarker.detectForVideo(video, performance.now());
   const hand = result.landmarks[0];
   if (!hand) {
@@ -586,6 +603,7 @@ async function enableCamera() {
         facingMode: "user",
         width: { ideal: 1280 },
         height: { ideal: 720 },
+        frameRate: { ideal: CAMERA_FRAME_RATE, max: CAMERA_FRAME_RATE },
       },
       audio: false,
     });
