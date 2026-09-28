@@ -77,12 +77,20 @@ function isFingerRaised(
   );
 }
 
+function isThumbRaised(hand: NormalizedLandmark[]): boolean {
+  // При жесте с одним указательным большой палец часто виден сбоку.
+  // Поэтому для точки он должен быть прямым и выше основания указательного.
+  return (
+    hand[4].y < hand[2].y - 0.05 &&
+    hand[4].y < hand[5].y - 0.02 &&
+    jointAngle(hand[2], hand[3], hand[4]) > 155
+  );
+}
+
 /** Возвращает состояние каждого пальца с теми же порогами, что у классификатора. */
 export function getFingerStates(hand: NormalizedLandmark[]): FingerStates {
   return {
-    thumb:
-      hand[4].y < hand[2].y - 0.05 &&
-      jointAngle(hand[2], hand[3], hand[4]) > 155,
+    thumb: isThumbRaised(hand),
     index: isFingerRaised(hand, 8, 6, 7),
     middle: isFingerRaised(hand, 12, 10, 11),
     ring: isFingerRaised(hand, 16, 14, 15),
