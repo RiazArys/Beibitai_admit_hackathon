@@ -1,6 +1,10 @@
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 
 export type HandGesture = "dot" | "dash" | "space" | "open" | "fist" | "none";
+export type FingerStates = Record<
+  "thumb" | "index" | "middle" | "ring" | "pinky",
+  boolean
+>;
 
 export const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
   [0, 1],
@@ -73,18 +77,32 @@ function isFingerRaised(
   );
 }
 
+/** Возвращает состояние каждого пальца с теми же порогами, что у классификатора. */
+export function getFingerStates(hand: NormalizedLandmark[]): FingerStates {
+  return {
+    thumb:
+      hand[4].y < hand[2].y - 0.05 &&
+      jointAngle(hand[2], hand[3], hand[4]) > 155,
+    index: isFingerRaised(hand, 8, 6, 7),
+    middle: isFingerRaised(hand, 12, 10, 11),
+    ring: isFingerRaised(hand, 16, 14, 15),
+    pinky: isFingerRaised(hand, 20, 18, 19),
+  };
+}
+
 /**
  * Распознаёт только позы, которые использует MorseMotion.
  * Большой палец проверяется по высоте и углу сустава, чтобы согнутый палец
  * не ошибочно считался точкой.
  */
 export function classifyHandGesture(hand: NormalizedLandmark[]): HandGesture {
-  const thumbRaised =
-    hand[4].y < hand[2].y - 0.05 && jointAngle(hand[2], hand[3], hand[4]) > 155;
-  const indexRaised = isFingerRaised(hand, 8, 6, 7);
-  const middleRaised = isFingerRaised(hand, 12, 10, 11);
-  const ringRaised = isFingerRaised(hand, 16, 14, 15);
-  const pinkyRaised = isFingerRaised(hand, 20, 18, 19);
+  const {
+    thumb: thumbRaised,
+    index: indexRaised,
+    middle: middleRaised,
+    ring: ringRaised,
+    pinky: pinkyRaised,
+  } = getFingerStates(hand);
 
   if (
     thumbRaised &&
@@ -122,4 +140,66 @@ export function classifyHandGesture(hand: NormalizedLandmark[]): HandGesture {
     return "fist";
 
   return "none";
+}
+
+const targetGestures: Record<Exclude<HandGesture, "none">, FingerStates> = {
+  dot: { thumb: true, index: false, middle: false, ring: false, pinky: false },
+  dash: { thumb: false, index: true, middle: false, ring: false, pinky: false },
+  space: { thumb: true, index: true, middle: false, ring: false, pinky: false },
+  open: { thumb: true, index: true, middle: true, ring: true, pinky: true },
+  fist: {
+    thumb: false,
+    index: false,
+    middle: false,
+    ring: false,
+    pinky: false,
+  },
+};
+const fingerNames: Record<keyof FingerStates, string> = {
+  thumb: "большой",
+  index: "указательный",
+  middle: "средний",
+  ring: "безымянный",
+  pinky: "мизинец",
+};
+const targetNames: Record<Exclude<HandGesture, "none">, string> = {
+  dot: "точка",
+  dash: "тире",
+  space: "пробел",
+  open: "открытая ладонь",
+  fist: "кулак",
+};
+
+function joinNames(names: string[]): string {
+  if (names.length < 2) return names[0] ?? "";
+  if (names.length === 2) return `${names[0]} и ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")} и ${names.at(-1)}`;
+}
+
+/** Даёт конкретную подсказку для неоднозначной позы, не меняя классификацию. */
+export function getPoseHint(hand: NormalizedLandmark[]): string {
+  const current = getFingerStates(hand);
+  const fingers = Object.keys(current) as Array<keyof FingerStates>;
+  const nearest = (
+    Object.keys(targetGestures) as Array<Exclude<HandGesture, "none">>
+  )
+    .map((gesture) => ({
+      gesture,
+      differences: fingers.filter(
+        (finger) => current[finger] !== targetGestures[gesture][finger],
+      ),
+    }))
+    .sort((a, b) => a.differences.length - b.differences.length)[0];
+
+  const toRaise = nearest.differences
+    .filter((finger) => targetGestures[nearest.gesture][finger])
+    .map((finger) => fingerNames[finger]);
+  const toFold = nearest.differences
+    .filter((finger) => !targetGestures[nearest.gesture][finger])
+    .map((finger) => fingerNames[finger]);
+  const parts = [
+    toRaise.length ? `Выпрями ${joinNames(toRaise)} палец` : "",
+    toFold.length ? `согни ${joinNames(toFold)} палец` : "",
+  ].filter(Boolean);
+  return `${parts.join(" и ")}, чтобы получилась ${targetNames[nearest.gesture]}`;
 }

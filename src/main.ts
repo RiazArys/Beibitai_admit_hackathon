@@ -9,6 +9,7 @@ import {
   HAND_CONNECTIONS,
   classifyHandGesture,
   getGestureLabel,
+  getPoseHint,
   type HandGesture,
 } from "./hand-gestures";
 import { MORSE_TO_CYRILLIC, formatMorse, getRandomMorseLetter } from "./morse";
@@ -228,13 +229,19 @@ function flashTerminal() {
   terminalCard.classList.remove("wrong-letter");
   void terminalCard.offsetWidth;
   terminalCard.classList.add("wrong-letter");
-  window.setTimeout(() => terminalCard.classList.remove("wrong-letter"), FLASH_MS);
+  window.setTimeout(
+    () => terminalCard.classList.remove("wrong-letter"),
+    FLASH_MS,
+  );
 }
 function flashSuccess() {
   terminalCard.classList.remove("right-letter");
   void terminalCard.offsetWidth;
   terminalCard.classList.add("right-letter");
-  window.setTimeout(() => terminalCard.classList.remove("right-letter"), FLASH_MS);
+  window.setTimeout(
+    () => terminalCard.classList.remove("right-letter"),
+    FLASH_MS,
+  );
 }
 function setMode(mode: "transmit" | "training" | "words") {
   trainingMode = mode === "training";
@@ -431,7 +438,7 @@ function processVideo() {
     gestureState.textContent = getGestureLabel(next);
     gestureHint.textContent =
       next === "none"
-        ? "Покажи только нужные пальцы"
+        ? getPoseHint(hand)
         : `Удерживай жест ${HOLD_MS / 1000} сек`;
     // Новый жест — это новая команда. Не требуем убирать руку из кадра,
     // достаточно сменить форму пальцев и удержать её 500 мс.
@@ -462,9 +469,7 @@ async function enableCamera() {
     });
     video.srcObject = stream;
     await video.play();
-    const vision = await FilesetResolver.forVisionTasks(
-      MEDIAPIPE_WASM_URL,
-    );
+    const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
     handLandmarker = await HandLandmarker.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath: HAND_LANDMARKER_MODEL_URL,
