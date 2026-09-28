@@ -276,6 +276,7 @@ let speedBest = 0;
 let speedTarget = "";
 let speedTyped = "";
 let speedInterval: number | undefined;
+let speedEndAt: number | null = null;
 let speedChallenge: "words" | "letters" = "words";
 let speedDuration = ROUND_DURATION_SECONDS;
 type CalibrationGesture = Exclude<HandGesture, "none">;
@@ -538,34 +539,48 @@ function startSpeedRound() {
   speedActive = true;
   speedFinished = false;
   speedSeconds = speedDuration;
+  speedEndAt = Date.now() + speedDuration * 1000;
   speedCorrect = 0;
   speedErrors = 0;
   currentSignal = "";
   chooseSpeedTarget();
   speedInterval = window.setInterval(() => {
-    speedSeconds--;
-    if (speedSeconds <= 0) {
-      window.clearInterval(speedInterval);
-      speedInterval = undefined;
-      speedActive = false;
-      speedFinished = true;
-      if (speedCorrect > speedBest) {
-        speedBest = speedCorrect;
-        try {
-          localStorage.setItem("morsemotion-best-speed", String(speedBest));
-        } catch {}
-      }
-      setFeedback(
-        `Раунд завершён: ${speedCorrect} ${speedChallenge === "letters" ? "букв" : "слов"}, ошибок: ${speedErrors}. Нажми «Начать», чтобы повторить.`,
-      );
-      roundModalStats.textContent = `Верно: ${speedCorrect} · Ошибки: ${speedErrors}`;
-      roundModal.classList.remove("hidden");
-    }
-    renderTerminal();
-  }, 1000);
+    updateSpeedTimer();
+  }, 250);
   setFeedback(
     `Раунд начался! Набирай ${speedChallenge === "letters" ? "буквы" : "слова"} и заверши каждую ладонью.`,
   );
+  renderTerminal();
+}
+function finishSpeedRound() {
+  if (!speedActive) return;
+  if (speedInterval) window.clearInterval(speedInterval);
+  speedInterval = undefined;
+  speedEndAt = null;
+  speedSeconds = 0;
+  speedActive = false;
+  speedFinished = true;
+  if (speedCorrect > speedBest) {
+    speedBest = speedCorrect;
+    try {
+      localStorage.setItem("morsemotion-best-speed", String(speedBest));
+    } catch {}
+  }
+  setFeedback(
+    `Раунд завершён: ${speedCorrect} ${speedChallenge === "letters" ? "букв" : "слов"}, ошибок: ${speedErrors}. Нажми «Начать», чтобы повторить.`,
+  );
+  roundModalStats.textContent = `Верно: ${speedCorrect} · Ошибки: ${speedErrors}`;
+  roundModal.classList.remove("hidden");
+  renderTerminal();
+}
+function updateSpeedTimer() {
+  if (!speedActive || speedEndAt === null) return;
+  const remainingMilliseconds = speedEndAt - Date.now();
+  speedSeconds = Math.max(0, Math.ceil(remainingMilliseconds / 1000));
+  if (remainingMilliseconds <= 0) {
+    finishSpeedRound();
+    return;
+  }
   renderTerminal();
 }
 function flashTerminal() {
@@ -957,6 +972,9 @@ resetCalibration.addEventListener("click", () => {
   setFeedback("Персональные настройки удалены. Можешь записать новые жесты.");
 });
 closeRoundModal.addEventListener("click", () => roundModal.classList.add("hidden"));
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) updateSpeedTimer();
+});
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();
