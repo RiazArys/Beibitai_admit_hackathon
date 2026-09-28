@@ -718,14 +718,23 @@ button {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #c4d2dd;
-  font-size: 13px;
-  padding-top: 15px;
+  color: #eff8ff;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 13px 15px;
+  margin-top: 14px;
+  background: #102535;
+  border: 1px solid #315367;
+  border-left: 4px solid #63e6c5;
+  border-radius: 4px;
 }
 .recognition-state small {
   margin-left: auto;
-  color: #738a9e;
-  font-size: 11px;
+  color: #c4e5f4;
+  font-size: 14px;
+  font-weight: 600;
+  max-width: 52%;
+  text-align: right;
 }
 .pulse {
   animation: pulse 1.5s infinite;
@@ -868,7 +877,7 @@ button {
   border: 1px solid #714c2d;
   background: #241b15;
   border-radius: 5px;
-  padding: 14px 17px;
+  padding: 18px 20px;
 }
 .feedback-icon {
   border: 1px solid #e5a44c;
@@ -887,7 +896,7 @@ button {
   margin-bottom: 4px;
 }
 .feedback strong {
-  font-size: 13px;
+  font-size: 17px;
   color: #efd8bd;
 }
 .accuracy {
@@ -942,7 +951,7 @@ button {
     align-items: flex-start;
   }
   .feedback strong {
-    font-size: 11px;
+    font-size: 14px;
   }
   .accuracy {
     display: none;
