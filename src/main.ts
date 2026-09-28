@@ -48,6 +48,7 @@ app.innerHTML = `
       <button class="mode-button active" id="transmitModeButton" type="button">РАДИОГРАММА</button>
       <button class="mode-button" id="trainingModeButton" type="button">ТРЕНИРОВКА БУКВ</button>
       <button class="mode-button" id="wordModeButton" type="button">СЛОВА</button>
+      <button class="mode-button" id="speedModeButton" type="button">СКОРОСТЬ</button>
     </nav>
 
     <section class="dashboard">
@@ -98,6 +99,15 @@ app.innerHTML = `
           <div class="word-signal"><span>ТЕКУЩИЙ СИГНАЛ</span><strong id="wordSignal">_</strong></div>
           <div class="training-progress"><span>НАБРАНО</span><strong id="wordInput">_ _ _ _ _</strong></div>
           <button class="clear-button" id="exitWords" type="button">ВЕРНУТЬСЯ К РАДИОГРАММЕ</button>
+        </div>
+        <div class="training-mode hidden" id="speedMode">
+          <div class="card-label">РАУНД НА СКОРОСТЬ <span id="speedTimer">01:00</span></div>
+          <p class="training-kicker">НАБЕРИ КАК МОЖНО БОЛЬШЕ СЛОВ</p>
+          <strong class="word-target" id="speedWord">ГОТОВ?</strong>
+          <div class="word-signal"><span>ТЕКУЩИЙ СИГНАЛ</span><strong id="speedSignal">_</strong></div>
+          <div class="training-progress"><span>НАБРАНО</span><strong id="speedInput">_</strong></div>
+          <p class="training-help" id="speedStats">Верно: 0 · Ошибки: 0 · Рекорд: 0</p>
+          <button class="clear-button" id="startSpeed" type="button">НАЧАТЬ 60-СЕКУНДНЫЙ РАУНД</button>
         </div>
       </aside>
       <aside class="alphabet-card"><img src="${morseChart}" alt="Справочная таблица кириллической азбуки Морзе" /></aside>
@@ -162,6 +172,15 @@ const wordTargetElement = document.querySelector<HTMLElement>("#wordTarget")!;
 const wordInput = document.querySelector<HTMLElement>("#wordInput")!;
 const wordScore = document.querySelector<HTMLElement>("#wordScore")!;
 const wordSignal = document.querySelector<HTMLElement>("#wordSignal")!;
+const speedModeElement = document.querySelector<HTMLElement>("#speedMode")!;
+const speedModeButton =
+  document.querySelector<HTMLButtonElement>("#speedModeButton")!;
+const speedTimer = document.querySelector<HTMLElement>("#speedTimer")!;
+const speedWord = document.querySelector<HTMLElement>("#speedWord")!;
+const speedSignal = document.querySelector<HTMLElement>("#speedSignal")!;
+const speedInput = document.querySelector<HTMLElement>("#speedInput")!;
+const speedStats = document.querySelector<HTMLElement>("#speedStats")!;
+const startSpeed = document.querySelector<HTMLButtonElement>("#startSpeed")!;
 
 let handLandmarker: HandLandmarker | null = null;
 let currentSignal = "";
@@ -180,6 +199,15 @@ let wordMode = false;
 let wordScoreValue = 0;
 let wordTarget = "МОРЗЕ";
 let wordTyped = "";
+let speedMode = false;
+let speedActive = false;
+let speedSeconds = 60;
+let speedCorrect = 0;
+let speedErrors = 0;
+let speedBest = 0;
+let speedTarget = "";
+let speedTyped = "";
+let speedInterval: number | undefined;
 // История нужна только в текущем сеансе: после обновления страницы она очищается.
 localStorage.removeItem("morsemotion-transmissions");
 
@@ -213,6 +241,11 @@ function renderTerminal() {
   wordSignal.textContent = currentSignal
     ? currentSignal.replaceAll(".", "·").replaceAll("-", "—")
     : "_";
+  speedTimer.textContent = `00:${String(speedSeconds).padStart(2, "0")}`;
+  speedWord.textContent = speedActive ? speedTarget : "ГОТОВ?";
+  speedSignal.textContent = currentSignal ? formatMorse(currentSignal) : "_";
+  speedInput.textContent = speedTyped || "_";
+  speedStats.textContent = `Верно: ${speedCorrect} · Ошибки: ${speedErrors} · Рекорд: ${speedBest}`;
 }
 function chooseTrainingLetter() {
   trainingTarget = getRandomMorseLetter(trainingTarget.letter);
@@ -224,6 +257,44 @@ function chooseWord() {
   wordTarget = available[Math.floor(Math.random() * available.length)];
   wordTyped = "";
   wordTargetElement.textContent = wordTarget;
+}
+function chooseSpeedWord() {
+  const options = WORD_BANK.filter(
+    (word) => word !== speedTarget && word.length <= 8,
+  );
+  speedTarget = options[Math.floor(Math.random() * options.length)];
+  speedTyped = "";
+}
+function startSpeedRound() {
+  if (speedInterval) window.clearInterval(speedInterval);
+  speedActive = true;
+  speedSeconds = 60;
+  speedCorrect = 0;
+  speedErrors = 0;
+  currentSignal = "";
+  chooseSpeedWord();
+  speedInterval = window.setInterval(() => {
+    speedSeconds--;
+    if (speedSeconds <= 0) {
+      window.clearInterval(speedInterval);
+      speedInterval = undefined;
+      speedActive = false;
+      if (speedCorrect > speedBest) {
+        speedBest = speedCorrect;
+        try {
+          localStorage.setItem("morsemotion-best-speed", String(speedBest));
+        } catch {}
+      }
+      setFeedback(
+        `Раунд завершён: ${speedCorrect} слов, ошибок: ${speedErrors}. Нажми «Начать», чтобы повторить.`,
+      );
+    }
+    renderTerminal();
+  }, 1000);
+  setFeedback(
+    "Раунд начался! Набирай слово по буквам и заверши каждую ладонью.",
+  );
+  renderTerminal();
 }
 function flashTerminal() {
   terminalCard.classList.remove("wrong-letter");
@@ -243,16 +314,25 @@ function flashSuccess() {
     FLASH_MS,
   );
 }
-function setMode(mode: "transmit" | "training" | "words") {
+function setMode(mode: "transmit" | "training" | "words" | "speed") {
   trainingMode = mode === "training";
   wordMode = mode === "words";
+  speedMode = mode === "speed";
   currentSignal = "";
-  transmitMode.classList.toggle("hidden", trainingMode || wordMode);
+  transmitMode.classList.toggle(
+    "hidden",
+    trainingMode || wordMode || speedMode,
+  );
   trainingModeElement.classList.toggle("hidden", !trainingMode);
   wordModeElement.classList.toggle("hidden", !wordMode);
-  transmitModeButton.classList.toggle("active", !trainingMode && !wordMode);
+  speedModeElement.classList.toggle("hidden", !speedMode);
+  transmitModeButton.classList.toggle(
+    "active",
+    !trainingMode && !wordMode && !speedMode,
+  );
   trainingModeButton.classList.toggle("active", trainingMode);
   wordModeButton.classList.toggle("active", wordMode);
+  speedModeButton.classList.toggle("active", speedMode);
   if (trainingMode) {
     chooseTrainingLetter();
     setFeedback("Повтори код буквы и раскрой ладонь для проверки");
@@ -261,6 +341,11 @@ function setMode(mode: "transmit" | "training" | "words") {
     setFeedback(
       "Набери слово по одной букве и заверши каждую открытой ладонью",
     );
+  } else if (speedMode) {
+    try {
+      speedBest = Number(localStorage.getItem("morsemotion-best-speed") ?? 0);
+    } catch {}
+    setFeedback("Нажми «Начать 60-секундный раунд». ");
   } else setFeedback("Режим радиограммы включён. Наберите сообщение жестами");
   renderTerminal();
 }
@@ -291,6 +376,32 @@ function finishLetter() {
       `Почти. Для «${trainingTarget.letter}» нужен код ${trainingTarget.code.replaceAll(".", "·").replaceAll("-", "—")}. Попробуй ещё раз.`,
     );
     currentSignal = "";
+    renderTerminal();
+    return;
+  }
+  if (speedMode) {
+    if (!speedActive) {
+      currentSignal = "";
+      setFeedback("Сначала нажми «Начать 60-секундный раунд».");
+      renderTerminal();
+      return;
+    }
+    const letter = MORSE_TO_CYRILLIC[currentSignal];
+    const expected = speedTarget[speedTyped.length];
+    currentSignal = "";
+    if (letter === expected) {
+      speedTyped += letter;
+      flashSuccess();
+      if (speedTyped === speedTarget) {
+        speedCorrect++;
+        chooseSpeedWord();
+        setFeedback("Слово принято! Следующее слово.");
+      } else setFeedback(`Верно: «${letter}». Продолжай слово.`);
+    } else {
+      speedErrors++;
+      flashTerminal();
+      setFeedback(`Ошибка. Сейчас нужна буква «${expected}».`);
+    }
     renderTerminal();
     return;
   }
@@ -504,6 +615,8 @@ clearButton.addEventListener("click", () => {
 transmitModeButton.addEventListener("click", () => setMode("transmit"));
 trainingModeButton.addEventListener("click", () => setMode("training"));
 wordModeButton.addEventListener("click", () => setMode("words"));
+speedModeButton.addEventListener("click", () => setMode("speed"));
+startSpeed.addEventListener("click", startSpeedRound);
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();
