@@ -149,6 +149,14 @@ app.innerHTML = `
 
     <section class="feedback"><div class="feedback-icon">!</div><div><span>ПОДСКАЗКА</span><strong id="feedbackText">Включите камеру и покажите руку целиком</strong></div><div class="accuracy"><span>ТОЧНОСТЬ</span><b id="accuracy">—</b></div></section>
     <section class="result-panel hidden" id="resultPanel" aria-live="polite"><span>РАДИОГРАММА ПЕРЕДАНА</span><strong id="sentMessage"></strong><small>Сигнал успешно отправлен в эфир</small></section>
+    <section class="round-modal hidden" id="roundModal" role="dialog" aria-modal="true" aria-labelledby="roundModalTitle">
+      <div class="round-modal-card">
+        <span>РЕЖИМ СКОРОСТИ</span>
+        <strong id="roundModalTitle">РАУНД ЗАВЕРШЁН</strong>
+        <p id="roundModalStats"></p>
+        <button class="speed-start" id="closeRoundModal" type="button">ПОНЯТНО</button>
+      </div>
+    </section>
   </main>
 `;
 
@@ -170,6 +178,10 @@ const accuracyElement = document.querySelector<HTMLElement>("#accuracy")!;
 const historyList = document.querySelector<HTMLElement>("#historyList")!;
 const resultPanel = document.querySelector<HTMLElement>("#resultPanel")!;
 const sentMessage = document.querySelector<HTMLElement>("#sentMessage")!;
+const roundModal = document.querySelector<HTMLElement>("#roundModal")!;
+const roundModalStats = document.querySelector<HTMLElement>("#roundModalStats")!;
+const closeRoundModal =
+  document.querySelector<HTMLButtonElement>("#closeRoundModal")!;
 const transmitMode = document.querySelector<HTMLElement>("#transmitMode")!;
 const trainingModeElement =
   document.querySelector<HTMLElement>("#trainingMode")!;
@@ -522,6 +534,7 @@ function setSpeedDuration(seconds: number) {
 }
 function startSpeedRound() {
   if (speedInterval) window.clearInterval(speedInterval);
+  roundModal.classList.add("hidden");
   speedActive = true;
   speedFinished = false;
   speedSeconds = speedDuration;
@@ -545,6 +558,8 @@ function startSpeedRound() {
       setFeedback(
         `Раунд завершён: ${speedCorrect} ${speedChallenge === "letters" ? "букв" : "слов"}, ошибок: ${speedErrors}. Нажми «Начать», чтобы повторить.`,
       );
+      roundModalStats.textContent = `Верно: ${speedCorrect} · Ошибки: ${speedErrors}`;
+      roundModal.classList.remove("hidden");
     }
     renderTerminal();
   }, 1000);
@@ -941,6 +956,7 @@ resetCalibration.addEventListener("click", () => {
   beginCalibration();
   setFeedback("Персональные настройки удалены. Можешь записать новые жесты.");
 });
+closeRoundModal.addEventListener("click", () => roundModal.classList.add("hidden"));
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();
