@@ -12,6 +12,7 @@ import {
   type HandGesture,
 } from "./hand-gestures";
 import { MORSE_TO_CYRILLIC, formatMorse, getRandomMorseLetter } from "./morse";
+import { WORD_BANK } from "./words";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -172,16 +173,6 @@ let wordMode = false;
 let wordScoreValue = 0;
 let wordTarget = "МОРЗЕ";
 let wordTyped = "";
-const wordBank = [
-  "МОРЗЕ",
-  "РАДИО",
-  "СИГНАЛ",
-  "КАМЕРА",
-  "ЖЕСТ",
-  "КОСМОС",
-  "КОД",
-  "ЭФИР",
-];
 // История нужна только в текущем сеансе: после обновления страницы она очищается.
 localStorage.removeItem("morsemotion-transmissions");
 
@@ -222,7 +213,7 @@ function chooseTrainingLetter() {
   trainingCode.textContent = formatMorse(trainingTarget.code);
 }
 function chooseWord() {
-  const available = wordBank.filter((word) => word !== wordTarget);
+  const available = WORD_BANK.filter((word) => word !== wordTarget);
   wordTarget = available[Math.floor(Math.random() * available.length)];
   wordTyped = "";
   wordTargetElement.textContent = wordTarget;
