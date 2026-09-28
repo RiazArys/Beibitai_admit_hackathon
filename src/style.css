@@ -141,6 +141,18 @@
 .speed-start:hover {
   background: #99f6dc;
 }
+.speed-round-status {
+  margin: 0 0 13px;
+  padding: 12px 8px;
+  border: 1px solid #f2cb6b;
+  border-radius: 4px;
+  background: #3a3017;
+  color: #ffe5a1;
+  font:
+    800 13px "DM Mono",
+    monospace;
+  letter-spacing: 1.2px;
+}
 .calibration-icon {
   display: block;
   margin: 13px 0 7px;

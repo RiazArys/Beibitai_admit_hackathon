@@ -118,6 +118,7 @@ app.innerHTML = `
             <div class="speed-stat errors"><span>ОШИБКИ</span><strong id="speedErrors">0</strong></div>
             <div class="speed-stat best"><span>РЕКОРД</span><strong id="speedBest">0</strong></div>
           </div>
+          <div class="speed-round-status hidden" id="speedRoundStatus">РАУНД ЗАВЕРШЁН</div>
           <button class="speed-start" id="startSpeed" type="button">НАЧАТЬ 2-МИНУТНЫЙ РАУНД</button>
         </div>
         <div class="training-mode hidden" id="calibrationMode">
@@ -204,6 +205,8 @@ const speedCorrectElement =
   document.querySelector<HTMLElement>("#speedCorrect")!;
 const speedErrorsElement = document.querySelector<HTMLElement>("#speedErrors")!;
 const speedBestElement = document.querySelector<HTMLElement>("#speedBest")!;
+const speedRoundStatus =
+  document.querySelector<HTMLElement>("#speedRoundStatus")!;
 const startSpeed = document.querySelector<HTMLButtonElement>("#startSpeed")!;
 const speedWordsButton =
   document.querySelector<HTMLButtonElement>("#speedWords")!;
@@ -253,6 +256,7 @@ let wordTarget = "МОРЗЕ";
 let wordTyped = "";
 let speedMode = false;
 let speedActive = false;
+let speedFinished = false;
 let speedSeconds = ROUND_DURATION_SECONDS;
 let speedCorrect = 0;
 let speedErrors = 0;
@@ -474,6 +478,7 @@ function renderTerminal() {
   speedCorrectElement.textContent = String(speedCorrect);
   speedErrorsElement.textContent = String(speedErrors);
   speedBestElement.textContent = String(speedBest);
+  speedRoundStatus.classList.toggle("hidden", !speedFinished);
 }
 function chooseTrainingLetter() {
   trainingTarget = getRandomMorseLetter(trainingTarget.letter);
@@ -518,6 +523,7 @@ function setSpeedDuration(seconds: number) {
 function startSpeedRound() {
   if (speedInterval) window.clearInterval(speedInterval);
   speedActive = true;
+  speedFinished = false;
   speedSeconds = speedDuration;
   speedCorrect = 0;
   speedErrors = 0;
@@ -529,6 +535,7 @@ function startSpeedRound() {
       window.clearInterval(speedInterval);
       speedInterval = undefined;
       speedActive = false;
+      speedFinished = true;
       if (speedCorrect > speedBest) {
         speedBest = speedCorrect;
         try {
