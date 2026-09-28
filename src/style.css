@@ -188,10 +188,49 @@
     monospace;
   letter-spacing: 1px;
 }
-.round-modal-card p {
-  margin: 0 0 25px;
+.round-modal-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 22px 0 14px;
+}
+.round-modal-stats div {
+  padding: 10px;
+  border: 1px solid #315367;
+  background: #0f2534;
+}
+.round-modal-stats dt {
+  color: #9bb2c2;
+  font:
+    700 9px "DM Mono",
+    monospace;
+  letter-spacing: 0.8px;
+}
+.round-modal-stats dd {
+  margin: 6px 0 0;
+  color: #63e6c5;
+  font:
+    700 19px "DM Mono",
+    monospace;
+}
+.round-record {
+  margin: 0 0 20px;
   color: #c3d4df;
-  font-size: 17px;
+  font:
+    700 13px "DM Mono",
+    monospace;
+}
+.round-record.new-record {
+  color: #63e6c5;
+  text-shadow: 0 0 14px #63e6c5;
+}
+.round-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+.round-modal-actions .clear-button {
+  margin: 0;
 }
 .calibration-icon {
   display: block;
@@ -703,6 +742,24 @@ button {
 .top-status {
   color: #a5b7c9;
   font-size: 10px;
+}
+.sound-toggle {
+  margin-left: auto;
+  margin-right: 16px;
+  padding: 7px 9px;
+  border: 1px solid #315367;
+  border-radius: 3px;
+  background: #0b1826;
+  color: #63e6c5;
+  font:
+    700 9px "DM Mono",
+    monospace;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+}
+.sound-toggle.muted {
+  border-color: #4a5964;
+  color: #8da1b5;
 }
 .status-dot,
 .live-dot,

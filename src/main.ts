@@ -37,6 +37,7 @@ app.innerHTML = `
         <span>MORSE<span>MOTION</span></span>
       </a>
       <div class="top-status" id="cameraStatus"><span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА</div>
+      <button class="sound-toggle" id="soundToggle" type="button">ЗВУК: ВКЛ</button>
     </header>
 
     <section class="hero">
@@ -153,8 +154,18 @@ app.innerHTML = `
       <div class="round-modal-card">
         <span>РЕЖИМ СКОРОСТИ</span>
         <strong id="roundModalTitle">РАУНД ЗАВЕРШЁН</strong>
-        <p id="roundModalStats"></p>
-        <button class="speed-start" id="closeRoundModal" type="button">ПОНЯТНО</button>
+        <dl class="round-modal-stats" id="roundModalStats">
+          <div><dt>ВЕРНО</dt><dd id="roundCorrect">0</dd></div>
+          <div><dt>ОШИБКИ</dt><dd id="roundErrors">0</dd></div>
+          <div><dt>ТОЧНОСТЬ</dt><dd id="roundAccuracy">—</dd></div>
+          <div><dt>СРЕДНЕЕ ВРЕМЯ</dt><dd id="roundAverageTime">—</dd></div>
+          <div><dt>ЛУЧШЕЕ ВРЕМЯ</dt><dd id="roundBestTime">—</dd></div>
+        </dl>
+        <p class="round-record" id="roundRecord">Рекорд: 0</p>
+        <div class="round-modal-actions">
+          <button class="speed-start" id="restartSpeedRound" type="button">ЕЩЁ РАЗ</button>
+          <button class="clear-button" id="closeRoundModal" type="button">ЗАКРЫТЬ</button>
+        </div>
       </div>
     </section>
   </main>
@@ -167,6 +178,7 @@ const startCamera = document.querySelector<HTMLButtonElement>("#startCamera")!;
 const placeholder =
   document.querySelector<HTMLDivElement>("#cameraPlaceholder")!;
 const cameraStatus = document.querySelector<HTMLDivElement>("#cameraStatus")!;
+const soundToggle = document.querySelector<HTMLButtonElement>("#soundToggle")!;
 const gestureState = document.querySelector<HTMLSpanElement>("#gestureState")!;
 const gestureHint = document.querySelector<HTMLElement>("#gestureHint")!;
 const feedbackText = document.querySelector<HTMLElement>("#feedbackText")!;
@@ -179,7 +191,15 @@ const historyList = document.querySelector<HTMLElement>("#historyList")!;
 const resultPanel = document.querySelector<HTMLElement>("#resultPanel")!;
 const sentMessage = document.querySelector<HTMLElement>("#sentMessage")!;
 const roundModal = document.querySelector<HTMLElement>("#roundModal")!;
-const roundModalStats = document.querySelector<HTMLElement>("#roundModalStats")!;
+const roundCorrect = document.querySelector<HTMLElement>("#roundCorrect")!;
+const roundErrors = document.querySelector<HTMLElement>("#roundErrors")!;
+const roundAccuracy = document.querySelector<HTMLElement>("#roundAccuracy")!;
+const roundAverageTime =
+  document.querySelector<HTMLElement>("#roundAverageTime")!;
+const roundBestTime = document.querySelector<HTMLElement>("#roundBestTime")!;
+const roundRecord = document.querySelector<HTMLElement>("#roundRecord")!;
+const restartSpeedRound =
+  document.querySelector<HTMLButtonElement>("#restartSpeedRound")!;
 const closeRoundModal =
   document.querySelector<HTMLButtonElement>("#closeRoundModal")!;
 const transmitMode = document.querySelector<HTMLElement>("#transmitMode")!;
@@ -279,6 +299,10 @@ let speedInterval: number | undefined;
 let speedEndAt: number | null = null;
 let speedChallenge: "words" | "letters" = "words";
 let speedDuration = ROUND_DURATION_SECONDS;
+let targetShownAt = 0;
+let answerTimes: number[] = [];
+let soundEnabled = loadSoundEnabled();
+let audioContext: AudioContext | null = null;
 type CalibrationGesture = Exclude<HandGesture, "none">;
 type CalibrationTemplates = Partial<Record<CalibrationGesture, number[]>>;
 // Версия 2: скелет нормализуется по повороту ладони, поэтому старые образцы
@@ -303,7 +327,56 @@ let calibrationTemplates: CalibrationTemplates = loadCalibrationTemplates();
 let calibrationCountdown = 3;
 let calibrationCountdownInterval: number | undefined;
 // История нужна только в текущем сеансе: после обновления страницы она очищается.
-localStorage.removeItem("morsemotion-transmissions");
+try {
+  localStorage.removeItem("morsemotion-transmissions");
+} catch {}
+
+function loadSoundEnabled(): boolean {
+  try {
+    return localStorage.getItem("morsemotion-sound-enabled") !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function renderSoundToggle() {
+  soundToggle.textContent = `ЗВУК: ${soundEnabled ? "ВКЛ" : "ВЫКЛ"}`;
+  soundToggle.classList.toggle("muted", !soundEnabled);
+}
+
+async function prepareAudio() {
+  if (!soundEnabled) return;
+  audioContext ??= new AudioContext();
+  if (audioContext.state === "suspended") await audioContext.resume();
+}
+
+function playTone(frequency: number, duration: number, type: OscillatorType = "sine") {
+  if (!soundEnabled || !audioContext || audioContext.state !== "running") return;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const start = audioContext.currentTime;
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.11, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain).connect(audioContext.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
+}
+
+function getSpeedRecordKey() {
+  return `morsemotion-best-speed-${speedChallenge}-${speedDuration}`;
+}
+
+function loadSpeedBest() {
+  try {
+    const stored = Number(localStorage.getItem(getSpeedRecordKey()) ?? 0);
+    return Number.isFinite(stored) && stored >= 0 ? stored : 0;
+  } catch {
+    return 0;
+  }
+}
 
 function loadCalibrationTemplates(): CalibrationTemplates {
   try {
@@ -512,23 +585,28 @@ function chooseSpeedTarget() {
   const filtered = options.filter((item) => item !== speedTarget);
   speedTarget = filtered[Math.floor(Math.random() * filtered.length)];
   speedTyped = "";
+  targetShownAt = performance.now();
 }
 function setSpeedChallenge(challenge: "words" | "letters") {
+  if (speedActive) return;
   speedChallenge = challenge;
   speedWordsButton.classList.toggle("active", challenge === "words");
   speedLettersButton.classList.toggle("active", challenge === "letters");
   if (!speedActive) {
+    speedBest = loadSpeedBest();
     chooseSpeedTarget();
     renderTerminal();
   }
 }
 function setSpeedDuration(seconds: number) {
+  if (speedActive) return;
   speedDuration = seconds;
   oneMinuteButton.classList.toggle("active", seconds === 60);
   twoMinutesButton.classList.toggle("active", seconds === 120);
   threeMinutesButton.classList.toggle("active", seconds === 180);
   startSpeed.textContent = `НАЧАТЬ ${seconds / 60}-МИНУТНЫЙ РАУНД`;
   if (!speedActive) {
+    speedBest = loadSpeedBest();
     speedSeconds = seconds;
     renderTerminal();
   }
@@ -542,6 +620,8 @@ function startSpeedRound() {
   speedEndAt = Date.now() + speedDuration * 1000;
   speedCorrect = 0;
   speedErrors = 0;
+  answerTimes = [];
+  speedBest = loadSpeedBest();
   currentSignal = "";
   chooseSpeedTarget();
   speedInterval = window.setInterval(() => {
@@ -560,16 +640,30 @@ function finishSpeedRound() {
   speedSeconds = 0;
   speedActive = false;
   speedFinished = true;
-  if (speedCorrect > speedBest) {
+  const isNewRecord = speedCorrect > speedBest;
+  if (isNewRecord) {
     speedBest = speedCorrect;
     try {
-      localStorage.setItem("morsemotion-best-speed", String(speedBest));
+      localStorage.setItem(getSpeedRecordKey(), String(speedBest));
     } catch {}
   }
   setFeedback(
     `Раунд завершён: ${speedCorrect} ${speedChallenge === "letters" ? "букв" : "слов"}, ошибок: ${speedErrors}. Нажми «Начать», чтобы повторить.`,
   );
-  roundModalStats.textContent = `Верно: ${speedCorrect} · Ошибки: ${speedErrors}`;
+  const totalAnswers = speedCorrect + speedErrors;
+  const averageTime = answerTimes.length
+    ? answerTimes.reduce((sum, time) => sum + time, 0) / answerTimes.length
+    : null;
+  const bestTime = answerTimes.length ? Math.min(...answerTimes) : null;
+  roundCorrect.textContent = String(speedCorrect);
+  roundErrors.textContent = String(speedErrors);
+  roundAccuracy.textContent = totalAnswers
+    ? `${Math.round((speedCorrect / totalAnswers) * 100)}%`
+    : "—";
+  roundAverageTime.textContent = averageTime === null ? "—" : `${(averageTime / 1000).toFixed(1)} с`;
+  roundBestTime.textContent = bestTime === null ? "—" : `${(bestTime / 1000).toFixed(1)} с`;
+  roundRecord.textContent = isNewRecord ? "НОВЫЙ РЕКОРД!" : `Рекорд: ${speedBest}`;
+  roundRecord.classList.toggle("new-record", isNewRecord);
   roundModal.classList.remove("hidden");
   renderTerminal();
 }
@@ -584,6 +678,7 @@ function updateSpeedTimer() {
   renderTerminal();
 }
 function flashTerminal() {
+  playTone(180, 0.24, "sawtooth");
   terminalCard.classList.remove("wrong-letter");
   void terminalCard.offsetWidth;
   terminalCard.classList.add("wrong-letter");
@@ -593,6 +688,8 @@ function flashTerminal() {
   );
 }
 function flashSuccess() {
+  playTone(880, 0.12);
+  window.setTimeout(() => playTone(1100, 0.14), 100);
   terminalCard.classList.remove("right-letter");
   void terminalCard.offsetWidth;
   terminalCard.classList.add("right-letter");
@@ -638,9 +735,7 @@ function setMode(
       "Набери слово по одной букве и заверши каждую открытой ладонью",
     );
   } else if (speedMode) {
-    try {
-      speedBest = Number(localStorage.getItem("morsemotion-best-speed") ?? 0);
-    } catch {}
+    speedBest = loadSpeedBest();
     setFeedback("Выбери длительность и нажми «Начать раунд». ");
   } else if (calibrationMode) {
     beginCalibration();
@@ -692,6 +787,7 @@ function finishLetter() {
       flashSuccess();
       if (speedTyped === speedTarget) {
         speedCorrect++;
+        answerTimes.push(performance.now() - targetShownAt);
         chooseSpeedTarget();
         setFeedback("Слово принято! Следующее слово.");
       } else setFeedback(`Верно: «${letter}». Продолжай слово.`);
@@ -737,11 +833,13 @@ function finishLetter() {
 function acceptGesture(gesture: string) {
   if (gesture === "dot") {
     currentSignal += ".";
+    playTone(650, 0.08);
     acceptedSignals++;
     setFeedback("Точка принята. Покажи следующий жест");
   }
   if (gesture === "dash") {
     currentSignal += "-";
+    playTone(650, 0.24);
     acceptedSignals++;
     setFeedback("Тире принято. Покажи следующий жест");
   }
@@ -904,6 +1002,7 @@ function processVideo() {
 }
 async function enableCamera() {
   try {
+    await prepareAudio();
     startCamera.disabled = true;
     startCamera.textContent = "ПОДКЛЮЧЕНИЕ…";
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -972,9 +1071,19 @@ resetCalibration.addEventListener("click", () => {
   setFeedback("Персональные настройки удалены. Можешь записать новые жесты.");
 });
 closeRoundModal.addEventListener("click", () => roundModal.classList.add("hidden"));
+restartSpeedRound.addEventListener("click", startSpeedRound);
+soundToggle.addEventListener("click", () => {
+  soundEnabled = !soundEnabled;
+  try {
+    localStorage.setItem("morsemotion-sound-enabled", String(soundEnabled));
+  } catch {}
+  renderSoundToggle();
+  setFeedback(soundEnabled ? "Звук включён. Включи камеру, чтобы активировать аудио." : "Звук выключен.");
+});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) updateSpeedTimer();
 });
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();
+renderSoundToggle();

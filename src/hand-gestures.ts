@@ -199,6 +199,10 @@ function joinNames(names: string[]): string {
   return `${names.slice(0, -1).join(", ")} и ${names.at(-1)}`;
 }
 
+function fingerWord(names: string[]): string {
+  return names.length === 1 ? "палец" : "пальцы";
+}
+
 /** Даёт конкретную подсказку для неоднозначной позы, не меняя классификацию. */
 export function getPoseHint(hand: NormalizedLandmark[]): string {
   const current = getFingerStates(hand);
@@ -221,8 +225,8 @@ export function getPoseHint(hand: NormalizedLandmark[]): string {
     .filter((finger) => !targetGestures[nearest.gesture][finger])
     .map((finger) => fingerNames[finger]);
   const parts = [
-    toRaise.length ? `Выпрями ${joinNames(toRaise)} палец` : "",
-    toFold.length ? `согни ${joinNames(toFold)} палец` : "",
+    toRaise.length ? `Выпрями ${joinNames(toRaise)} ${fingerWord(toRaise)}` : "",
+    toFold.length ? `согни ${joinNames(toFold)} ${fingerWord(toFold)}` : "",
   ].filter(Boolean);
   return `${parts.join(" и ")}, чтобы получилась ${targetNames[nearest.gesture]}`;
 }
