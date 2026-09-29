@@ -1614,6 +1614,69 @@ body.accessibility-mode .scanner,
 body.accessibility-mode .pulse {
   animation: none;
 }
+.alphabet-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.alphabet-card-title {
+  color: #8da1b5;
+  font: 500 10px "DM Mono", monospace;
+  letter-spacing: 1px;
+}
+.chart-toggle {
+  border: 1px solid #385265;
+  border-radius: 999px;
+  background: #0d1d2a;
+  color: #c1d0da;
+  padding: 7px 11px;
+  font: 700 9px "DM Mono", monospace;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+}
+.chart-toggle:hover {
+  border-color: #63e6c5;
+  color: #85f0d0;
+}
+.chart-hidden-notice {
+  margin: 0 !important;
+  padding: 18px 8px;
+  border: 1px dashed #385265;
+  border-radius: 4px;
+  color: #91a5b5;
+  text-align: center;
+}
+body[data-theme="light"] .alphabet-card-title {
+  color: #536e69;
+}
+body[data-theme="light"] .chart-toggle {
+  border-color: #c6d9d2;
+  background: #fbfdfc;
+  color: #506963;
+}
+body[data-theme="light"] .chart-toggle:hover {
+  border-color: #54a993;
+  color: #08745f;
+}
+body[data-theme="light"] .chart-hidden-notice {
+  border-color: #c6d9d2;
+  color: #536e69;
+}
+body.accessibility-mode .alphabet-card-title,
+body.accessibility-mode .chart-hidden-notice {
+  color: #fff;
+}
+body.accessibility-mode .chart-hidden-notice {
+  border-color: #ff0;
+}
+body.accessibility-mode .chart-toggle {
+  min-height: 40px;
+  border: 2px solid #ff0;
+  background: #000;
+  color: #ff0;
+}
 .gesture[role="button"] {
   cursor: pointer;
 }

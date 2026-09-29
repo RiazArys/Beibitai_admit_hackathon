@@ -31,6 +31,8 @@ const app = document.querySelector<HTMLDivElement>("#app");
 
 if (!app) throw new Error("Application root was not found");
 
+let soundEnabled = loadSoundEnabled();
+
 app.innerHTML = `
   <main class="shell">
     <header class="topbar">
@@ -59,7 +61,7 @@ app.innerHTML = `
       </div>
       <div class="top-status" id="cameraStatus"><span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА</div>
       <button class="privacy-toggle active" id="privacyToggle" type="button">ЛИЦО: СКРЫТО</button>
-      <button class="sound-toggle" id="soundToggle" type="button">ЗВУК: ВКЛ</button>
+      <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true">ЗВУК: ВКЛ</button>
     </header>
 
     <section class="hero">
@@ -157,7 +159,14 @@ app.innerHTML = `
           <button class="clear-button" id="resetCalibration" type="button">СБРОСИТЬ МОИ НАСТРОЙКИ</button>
         </div>
       </aside>
-      <aside class="alphabet-card"><img src="${morseChart}" alt="Справочная таблица кириллической азбуки Морзе" /></aside>
+      <aside class="alphabet-card">
+        <div class="alphabet-card-header">
+          <span class="alphabet-card-title">АЗБУКА МОРЗЕ</span>
+          <button class="chart-toggle" id="toggleMorseChart" type="button" aria-controls="morseChartImage" aria-expanded="true">СКРЫТЬ</button>
+        </div>
+        <img id="morseChartImage" src="${morseChart}" alt="Справочная таблица кириллической азбуки Морзе" />
+        <p class="chart-hidden-notice hidden" id="morseChartHiddenNotice">Таблица скрыта</p>
+      </aside>
     </section>
 
     <section class="guide-section">
@@ -209,7 +218,7 @@ function applyTheme(theme: "dark" | "light") {
 }
 
 function speakText(text: string) {
-  if (!document.body.classList.contains("accessibility-mode") || !("speechSynthesis" in window)) {
+  if (!soundEnabled || !document.body.classList.contains("accessibility-mode") || !("speechSynthesis" in window)) {
     return;
   }
 
@@ -253,6 +262,7 @@ if (themeButtons.length) {
 accessibilityToggle.addEventListener("click", () => {
   const enabled = !document.body.classList.contains("accessibility-mode");
   setAccessibilityMode(enabled);
+  renderSoundToggle();
 });
 
 const gestureCards = [...document.querySelectorAll<HTMLElement>(".gesture[role='button']")];
@@ -290,6 +300,25 @@ const soundToggle = document.querySelector<HTMLButtonElement>("#soundToggle")!;
 const gestureState = document.querySelector<HTMLSpanElement>("#gestureState")!;
 const gestureHint = document.querySelector<HTMLElement>("#gestureHint")!;
 const feedbackText = document.querySelector<HTMLElement>("#feedbackText")!;
+const morseChartImage = document.querySelector<HTMLImageElement>("#morseChartImage")!;
+const toggleMorseChartButton = document.querySelector<HTMLButtonElement>("#toggleMorseChart")!;
+const morseChartHiddenNotice = document.querySelector<HTMLElement>("#morseChartHiddenNotice")!;
+
+function setMorseChartHidden(hidden: boolean) {
+  morseChartImage.classList.toggle("hidden", hidden);
+  morseChartHiddenNotice.classList.toggle("hidden", !hidden);
+  toggleMorseChartButton.textContent = hidden ? "ПОКАЗАТЬ" : "СКРЫТЬ";
+  toggleMorseChartButton.setAttribute("aria-expanded", String(!hidden));
+  try {
+    localStorage.setItem("morsemotion-chart-hidden", String(hidden));
+  } catch {}
+}
+
+try {
+  setMorseChartHidden(localStorage.getItem("morsemotion-chart-hidden") === "true");
+} catch {
+  setMorseChartHidden(false);
+}
 const signalElement = document.querySelector<HTMLElement>("#signal")!;
 const decodedElement = document.querySelector<HTMLElement>("#decoded")!;
 const messageElement = document.querySelector<HTMLElement>("#message")!;
@@ -419,7 +448,6 @@ let speedChallenge: "words" | "letters" = "words";
 let speedDuration = ROUND_DURATION_SECONDS;
 let targetShownAt = 0;
 let answerTimes: number[] = [];
-let soundEnabled = loadSoundEnabled();
 let audioContext: AudioContext | null = null;
 type CalibrationGesture = Exclude<HandGesture, "none">;
 type CalibrationTemplates = Partial<Record<CalibrationGesture, number[]>>;
@@ -458,18 +486,23 @@ function loadSoundEnabled(): boolean {
 }
 
 function renderSoundToggle() {
-  soundToggle.textContent = `ЗВУК: ${soundEnabled ? "ВКЛ" : "ВЫКЛ"}`;
+  const label = document.body.classList.contains("accessibility-mode")
+    ? "ГОЛОС"
+    : "ЗВУК";
+  soundToggle.textContent = `${label}: ${soundEnabled ? "ВКЛ" : "ВЫКЛ"}`;
   soundToggle.classList.toggle("muted", !soundEnabled);
+  soundToggle.setAttribute("aria-pressed", String(soundEnabled));
 }
 
 async function prepareAudio() {
-  if (!soundEnabled) return;
+  if (!soundEnabled && !document.body.classList.contains("accessibility-mode")) return;
   audioContext ??= new AudioContext();
   if (audioContext.state === "suspended") await audioContext.resume();
 }
 
 function playTone(frequency: number, duration: number, type: OscillatorType = "sine") {
-  if (!soundEnabled || !audioContext || audioContext.state !== "running") return;
+  const accessibilityMode = document.body.classList.contains("accessibility-mode");
+  if ((!soundEnabled && !accessibilityMode) || !audioContext || audioContext.state !== "running") return;
   const oscillator = audioContext.createOscillator();
   const gain = audioContext.createGain();
   const start = audioContext.currentTime;
@@ -1370,6 +1403,17 @@ soundToggle.addEventListener("click", () => {
   try {
     localStorage.setItem("morsemotion-sound-enabled", String(soundEnabled));
   } catch {}
+  if (!soundEnabled) {
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (
+      !document.body.classList.contains("accessibility-mode") &&
+      audioContext?.state === "running"
+    ) {
+      void audioContext.suspend();
+    }
+  } else if (audioContext?.state === "suspended") {
+    void audioContext.resume();
+  }
   renderSoundToggle();
   setFeedback(soundEnabled ? "Звук включён. Включи камеру, чтобы активировать аудио." : "Звук выключен.");
 });
@@ -1391,6 +1435,11 @@ document.addEventListener("visibilitychange", () => {
 });
 exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
+toggleMorseChartButton.addEventListener("click", () => {
+  const hidden = !morseChartImage.classList.contains("hidden");
+  setMorseChartHidden(hidden);
+  setFeedback(hidden ? "Таблица азбуки Морзе скрыта." : "Таблица азбуки Морзе показана.");
+});
 renderTerminal();
 renderSoundToggle();
 renderPrivacyToggle();
