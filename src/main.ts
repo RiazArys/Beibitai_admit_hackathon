@@ -75,6 +75,7 @@ app.innerHTML = `
       <button class="mode-button active" id="transmitModeButton" type="button">РАДИОГРАММА</button>
       <button class="mode-button" id="trainingModeButton" type="button">ТРЕНИРОВКА БУКВ</button>
       <button class="mode-button" id="wordModeButton" type="button">СЛОВА</button>
+      <button class="mode-button" id="echoModeButton" type="button">ЭХО ЭФИРА</button>
       <button class="mode-button" id="speedModeButton" type="button">СКОРОСТЬ</button>
       <button class="mode-button" id="calibrationModeButton" type="button">КАЛИБРОВКА</button>
     </nav>
@@ -128,6 +129,16 @@ app.innerHTML = `
           <div class="word-signal"><span>ТЕКУЩИЙ СИГНАЛ</span><strong id="wordSignal">_</strong></div>
           <div class="training-progress"><span>НАБРАНО</span><strong id="wordInput">_ _ _ _ _</strong></div>
           <button class="clear-button" id="exitWords" type="button">ВЕРНУТЬСЯ К РАДИОГРАММЕ</button>
+        </div>
+        <div class="training-mode hidden" id="echoMode">
+          <div class="card-label">ЭХО ЭФИРА <span id="echoScore">0 ОЧКОВ</span></div>
+          <p class="training-kicker" id="echoKicker">ЗАПОМНИ ВХОДЯЩИЙ СИГНАЛ</p>
+          <strong class="echo-code" id="echoCode" aria-live="polite">···</strong>
+          <p class="training-help" id="echoHelp">Код появится на мгновение. Запомни его, затем повтори жестами и раскрой ладонь.</p>
+          <div class="echo-lives" id="echoLives" aria-label="Осталось ошибок: 3">● ● ●</div>
+          <div class="training-progress"><span>ТВОЙ ОТВЕТ</span><strong id="echoInput">_</strong></div>
+          <p class="echo-best" id="echoBest">РЕКОРД: 0</p>
+          <button class="speed-start" id="startEcho" type="button">НАЧАТЬ ИГРУ</button>
         </div>
         <div class="training-mode hidden" id="speedMode">
           <div class="card-label">РАУНД НА СКОРОСТЬ <span id="speedTimer">02:00</span></div>
@@ -329,6 +340,16 @@ const terminalCard = document.querySelector<HTMLElement>("#terminalCard")!;
 const wordModeElement = document.querySelector<HTMLElement>("#wordMode")!;
 const wordModeButton =
   document.querySelector<HTMLButtonElement>("#wordModeButton")!;
+const echoModeElement = document.querySelector<HTMLElement>("#echoMode")!;
+const echoModeButton = document.querySelector<HTMLButtonElement>("#echoModeButton")!;
+const echoScoreElement = document.querySelector<HTMLElement>("#echoScore")!;
+const echoKicker = document.querySelector<HTMLElement>("#echoKicker")!;
+const echoCodeElement = document.querySelector<HTMLElement>("#echoCode")!;
+const echoHelp = document.querySelector<HTMLElement>("#echoHelp")!;
+const echoLivesElement = document.querySelector<HTMLElement>("#echoLives")!;
+const echoInputElement = document.querySelector<HTMLElement>("#echoInput")!;
+const echoBestElement = document.querySelector<HTMLElement>("#echoBest")!;
+const startEchoButton = document.querySelector<HTMLButtonElement>("#startEcho")!;
 const exitWords = document.querySelector<HTMLButtonElement>("#exitWords")!;
 const wordTargetElement = document.querySelector<HTMLElement>("#wordTarget")!;
 const wordInput = document.querySelector<HTMLElement>("#wordInput")!;
@@ -392,6 +413,7 @@ type AppGesture = HandGesture | "reset" | "send";
 let candidate: AppGesture = "none";
 let candidateSince = 0;
 let candidateFrames = 0;
+let noHandSince: number | null = null;
 let lastVideoTime = -1;
 let receivedVideoFrames = 0;
 let latched = false;
@@ -404,6 +426,14 @@ let wordMode = false;
 let wordScoreValue = 0;
 let wordTarget = "МОРЗЕ";
 let wordTyped = "";
+let echoMode = false;
+let echoPlaying = false;
+let echoRevealing = false;
+let echoTarget = { code: "...", letter: "С" };
+let echoScore = 0;
+let echoMistakes = 0;
+let echoBest = Number(localStorage.getItem("morsemotion-echo-best") || 0);
+let echoRevealTimeout: number | undefined;
 let speedMode = false;
 let speedActive = false;
 let speedFinished = false;
@@ -426,6 +456,11 @@ type CalibrationTemplates = Partial<Record<CalibrationGesture, number[]>>;
 // Версия 2: скелет нормализуется по повороту ладони, поэтому старые образцы
 // намеренно не используются — их нужно записать заново.
 const CALIBRATION_STORAGE_KEY = "morsemotion-gesture-calibration-v2";
+const CALIBRATION_MIN_SAMPLES = 24;
+const CALIBRATION_MAX_SAMPLES = 36;
+const CALIBRATION_MAX_SPREAD = 0.12;
+const HAND_NOT_FOUND_DELAY_MS = 800;
+const HAND_LOST_GESTURE_RESET_MS = 220;
 const calibrationSteps: Array<{
   gesture: CalibrationGesture;
   name: string;
@@ -539,6 +574,18 @@ function averageSignatures(samples: number[][]): number[] {
   );
 }
 
+function calibrationSpread(): number {
+  if (calibrationSamples.length < 2) return 0;
+  const center = averageSignatures(calibrationSamples);
+  const perSampleDistances = calibrationSamples.map((sample) =>
+    Math.sqrt(
+      sample.reduce((sum, value, index) => sum + (value - center[index]) ** 2, 0) /
+        sample.length,
+    ),
+  );
+  return perSampleDistances.reduce((sum, value) => sum + value, 0) / perSampleDistances.length;
+}
+
 function getCalibratedGesture(hand: NormalizedLandmark[]): HandGesture | null {
   const signature = getHandSignature(hand);
   const matches = (Object.entries(calibrationTemplates) as Array<
@@ -562,13 +609,12 @@ function getCalibratedGesture(hand: NormalizedLandmark[]): HandGesture | null {
 }
 
 function currentHandGesture(hand: NormalizedLandmark[]): HandGesture {
-  // Базовые правила пальцев надёжнее для уже понятных поз. Персональный
-  // образец нужен только как запасной вариант для нестандартной формы руки,
-  // иначе похожий шаблон мог перебить корректно распознанный жест.
+  // Уверенно совпавший персональный образец помогает адаптироваться к форме
+  // конкретной руки, даже если общие пороги отнесли её к соседнему жесту.
+  const calibratedGesture = getCalibratedGesture(hand);
+  if (calibratedGesture) return calibratedGesture;
   const defaultGesture = classifyHandGesture(hand);
-  return defaultGesture !== "none"
-    ? defaultGesture
-    : (getCalibratedGesture(hand) ?? "none");
+  return defaultGesture;
 }
 
 function renderCalibration() {
@@ -580,19 +626,30 @@ function renderCalibration() {
     calibrationHelp.textContent = "Теперь приложение учитывает форму твоей руки. При необходимости калибровку можно пройти заново.";
     calibrationSamplesElement.textContent = "5 ИЗ 5 ЖЕСТОВ ГОТОВЫ";
     saveCalibration.textContent = "НАЧАТЬ КАЛИБРОВКУ ЗАНОВО";
+    saveCalibration.disabled = false;
     return;
   }
   calibrationStepElement.textContent = `${calibrationStepIndex + 1} / ${calibrationSteps.length}`;
   calibrationIcon.textContent = step.icon;
   calibrationName.textContent = step.name;
   calibrationHelp.textContent = step.help;
-  calibrationSamplesElement.textContent =
-    calibrationCountdown > 0
+  const hasCamera = Boolean(video.srcObject);
+  const spread = calibrationSpread();
+  calibrationSamplesElement.textContent = !hasCamera
+    ? "ВКЛЮЧИ КАМЕРУ ДЛЯ КАЛИБРОВКИ"
+    : calibrationCountdown > 0
       ? `ПРИГОТОВЬСЯ: СКАНИРОВАНИЕ ЧЕРЕЗ ${calibrationCountdown} СЕК.`
-      : calibrationSamples.length
-        ? `СЧИТАНО КАДРОВ: ${calibrationSamples.length} — МОЖНО СОХРАНЯТЬ`
-        : "СКАНИРУЮ ЖЕСТ — ДЕРЖИ РУКУ В КАДРЕ";
+      : calibrationSamples.length < CALIBRATION_MIN_SAMPLES
+        ? `СЧИТАНО: ${calibrationSamples.length} / ${CALIBRATION_MIN_SAMPLES} КАДРОВ`
+        : spread > CALIBRATION_MAX_SPREAD
+          ? "ПОЗА ДВИГАЕТСЯ — ДЕРЖИ РУКУ НЕПОДВИЖНО"
+          : `ОБРАЗЕЦ ГОТОВ: ${calibrationSamples.length} КАДРОВ — СОХРАНИ`;
   saveCalibration.textContent = "СОХРАНИТЬ ЖЕСТ";
+  saveCalibration.disabled =
+    !hasCamera ||
+    calibrationCountdown > 0 ||
+    calibrationSamples.length < CALIBRATION_MIN_SAMPLES ||
+    spread > CALIBRATION_MAX_SPREAD;
 }
 
 function startCalibrationCountdown() {
@@ -619,7 +676,9 @@ function beginCalibration() {
   const step = calibrationSteps[calibrationStepIndex];
   setFeedback(
     step
-      ? `Первый жест для калибровки: ${step.name}. ${step.help} Сканирование начнётся через 3 секунды.`
+      ? video.srcObject
+        ? `Первый жест для калибровки: ${step.name}. ${step.help} Сканирование начнётся через 3 секунды.`
+        : "Сначала включи камеру, затем покажи жест для калибровки."
       : "Калибровка завершена.",
   );
 }
@@ -629,8 +688,16 @@ function saveCalibrationGesture() {
     beginCalibration();
     return;
   }
-  if (calibrationSamples.length < 8) {
-    setFeedback("Недостаточно данных: удерживай кисть в кадре, пока не будет минимум 8 кадров.");
+  if (!video.srcObject || calibrationCountdown > 0) {
+    setFeedback("Включи камеру и дождись завершения обратного отсчёта калибровки.");
+    return;
+  }
+  if (calibrationSamples.length < CALIBRATION_MIN_SAMPLES) {
+    setFeedback(`Недостаточно данных: держи жест в кадре, пока не будет ${CALIBRATION_MIN_SAMPLES} кадров.`);
+    return;
+  }
+  if (calibrationSpread() > CALIBRATION_MAX_SPREAD) {
+    setFeedback("Образец пока нестабилен. Держи руку неподвижно несколько секунд и сохрани снова.");
     return;
   }
   const step = calibrationSteps[calibrationStepIndex];
@@ -698,6 +765,66 @@ function renderTerminal() {
   threeMinutesButton.disabled = speedActive;
   speedWordsButton.disabled = speedActive;
   speedLettersButton.disabled = speedActive;
+  echoScoreElement.textContent = `${echoScore} ОЧКОВ`;
+  echoInputElement.textContent = currentSignal ? formatMorse(currentSignal) : "_";
+  echoBestElement.textContent = `РЕКОРД: ${echoBest}`;
+  echoLivesElement.textContent = "● ".repeat(Math.max(0, 3 - echoMistakes)).trim() || "—";
+  echoLivesElement.setAttribute("aria-label", `Осталось ошибок: ${Math.max(0, 3 - echoMistakes)}`);
+  startEchoButton.textContent = echoPlaying ? "ИГРА ИДЁТ" : echoScore || echoMistakes ? "ИГРАТЬ ЕЩЁ" : "НАЧАТЬ ИГРУ";
+  startEchoButton.disabled = echoPlaying;
+}
+function showEchoSignal() {
+  echoTarget = getRandomMorseLetter(echoTarget.letter);
+  echoRevealing = true;
+  echoCodeElement.textContent = formatMorse(echoTarget.code);
+  echoCodeElement.classList.add("revealing");
+  echoKicker.textContent = "ЗАПОМНИ СИГНАЛ";
+  echoHelp.textContent = "Запомни последовательность. Когда она исчезнет, повтори её жестами и раскрой ладонь.";
+  if (echoRevealTimeout) window.clearTimeout(echoRevealTimeout);
+  echoRevealTimeout = window.setTimeout(() => {
+    echoRevealing = false;
+    echoCodeElement.textContent = "? ? ?";
+    echoCodeElement.classList.remove("revealing");
+    echoKicker.textContent = "ТЕПЕРЬ ПОВТОРИ ЕГО";
+    echoHelp.textContent = "Покажи точки и тире, затем раскрой ладонь. Если ошибёшься, сигнал покажется снова.";
+  }, 1800);
+}
+function startEchoGame() {
+  if (echoRevealTimeout) window.clearTimeout(echoRevealTimeout);
+  echoPlaying = true;
+  echoScore = 0;
+  echoMistakes = 0;
+  currentSignal = "";
+  echoKicker.textContent = "ЗАПОМНИ СИГНАЛ";
+  showEchoSignal();
+  setFeedback("Эхо эфира началось. Запомни Морзе-код, пока он на экране.");
+  renderTerminal();
+}
+function finishEchoSignal() {
+  if (currentSignal === echoTarget.code) {
+    echoScore++;
+    flashSuccess();
+    setFeedback(`Точно! Это был сигнал «${echoTarget.letter}». Следующий сигнал уже идёт.`);
+    if (echoScore > echoBest) {
+      echoBest = echoScore;
+      try { localStorage.setItem("morsemotion-echo-best", String(echoBest)); } catch {}
+    }
+  } else {
+    echoMistakes++;
+    flashTerminal();
+    setFeedback(`Сигнал был ${formatMorse(echoTarget.code)} — буква «${echoTarget.letter}». Ошибок: ${echoMistakes} из 3.`);
+  }
+  currentSignal = "";
+  if (echoMistakes >= 3) {
+    echoPlaying = false;
+    echoCodeElement.textContent = "ЭФИР ЗАТИХ";
+    echoCodeElement.classList.remove("revealing");
+    echoKicker.textContent = `ИТОГ: ${echoScore} ${echoScore === 1 ? "СИГНАЛ" : "СИГНАЛОВ"}`;
+    echoHelp.textContent = "Три сигнала потеряны. Начни новую игру и попробуй побить свой рекорд.";
+  } else {
+    echoRevealTimeout = window.setTimeout(showEchoSignal, 1100);
+  }
+  renderTerminal();
 }
 function chooseTrainingLetter() {
   trainingTarget = getRandomMorseLetter(trainingTarget.letter);
@@ -836,10 +963,16 @@ function flashSuccess() {
   );
 }
 function setMode(
-  mode: "transmit" | "training" | "words" | "speed" | "calibration",
+  mode: "transmit" | "training" | "words" | "echo" | "speed" | "calibration",
 ) {
+  if (echoMode && mode !== "echo") {
+    echoPlaying = false;
+    echoRevealing = false;
+    if (echoRevealTimeout) window.clearTimeout(echoRevealTimeout);
+  }
   trainingMode = mode === "training";
   wordMode = mode === "words";
+  echoMode = mode === "echo";
   speedMode = mode === "speed";
   calibrationMode = mode === "calibration";
   if (!calibrationMode && calibrationCountdownInterval) {
@@ -849,18 +982,20 @@ function setMode(
   currentSignal = "";
   transmitMode.classList.toggle(
     "hidden",
-    trainingMode || wordMode || speedMode || calibrationMode,
+    trainingMode || wordMode || echoMode || speedMode || calibrationMode,
   );
   trainingModeElement.classList.toggle("hidden", !trainingMode);
   wordModeElement.classList.toggle("hidden", !wordMode);
+  echoModeElement.classList.toggle("hidden", !echoMode);
   speedModeElement.classList.toggle("hidden", !speedMode);
   calibrationModeElement.classList.toggle("hidden", !calibrationMode);
   transmitModeButton.classList.toggle(
     "active",
-    !trainingMode && !wordMode && !speedMode && !calibrationMode,
+    !trainingMode && !wordMode && !echoMode && !speedMode && !calibrationMode,
   );
   trainingModeButton.classList.toggle("active", trainingMode);
   wordModeButton.classList.toggle("active", wordMode);
+  echoModeButton.classList.toggle("active", echoMode);
   speedModeButton.classList.toggle("active", speedMode);
   calibrationModeButton.classList.toggle("active", calibrationMode);
   if (trainingMode) {
@@ -869,6 +1004,16 @@ function setMode(
   } else if (wordMode) {
     setFeedback("Режим слов включён. Слушай целевое слово.");
     speakText(`Твоё слово: ${chooseWord()}`);
+  } else if (echoMode) {
+    echoPlaying = false;
+    echoScore = 0;
+    echoMistakes = 0;
+    if (echoRevealTimeout) window.clearTimeout(echoRevealTimeout);
+    echoCodeElement.textContent = "···";
+    echoCodeElement.classList.remove("revealing");
+    echoKicker.textContent = "ЗАПОМНИ ВХОДЯЩИЙ СИГНАЛ";
+    echoHelp.textContent = "Код появится на мгновение. Запомни его, затем повтори жестами и раскрой ладонь.";
+    setFeedback("Эхо эфира: запоминай сигнал Морзе и повторяй его жестами.");
   } else if (speedMode) {
     speedBest = loadSpeedBest();
     setFeedback("Выбери длительность и нажми «Начать раунд». ");
@@ -903,6 +1048,14 @@ function finishLetter() {
       `Почти. Для «${trainingTarget.letter}» нужен код ${trainingTarget.code.replaceAll(".", "·").replaceAll("-", "—")}. Попробуй ещё раз.`,
     );
     currentSignal = "";
+    renderTerminal();
+    return;
+  }
+  if (echoMode) {
+    if (!echoPlaying || echoRevealing) {
+      currentSignal = "";
+      setFeedback(echoRevealing ? "Сначала запомни входящий сигнал." : "Нажми «Начать игру», чтобы принять сигнал.");
+    } else finishEchoSignal();
     renderTerminal();
     return;
   }
@@ -1173,20 +1326,31 @@ function processVideo() {
   const hand = result.landmarks[0];
   drawCameraOverlay(hand);
   if (!hand) {
-    gestureState.textContent = "Рука не найдена";
-    gestureHint.textContent = "Покажи кисть целиком";
-    setFeedback("Поднеси руку в кадр: должны быть видны все пальцы");
-    candidate = "none";
-    latched = false;
-    candidateFrames = 0;
+    const now = performance.now();
+    noHandSince ??= now;
+    const handMissingTooLong = now - noHandSince >= HAND_NOT_FOUND_DELAY_MS;
+    gestureState.textContent = handMissingTooLong ? "Рука не найдена" : "Ищу руку…";
+    gestureHint.textContent = handMissingTooLong
+      ? "Поднеси кисть ближе, поверни ладонь к камере и добавь света; держи всю кисть в кадре"
+      : "Наведи ладонь перед камерой";
+    if (handMissingTooLong) {
+      setFeedback("Не вижу кисть: поднеси её ближе, покажи ладонь камере и проверь освещение.");
+    }
+    if (calibrationMode) renderCalibration();
+    if (now - noHandSince >= HAND_LOST_GESTURE_RESET_MS) {
+      candidate = "none";
+      latched = false;
+      candidateFrames = 0;
+    }
   } else {
+    noHandSince = null;
     if (calibrationMode) {
       if (
         calibrationStepIndex < calibrationSteps.length &&
         calibrationCountdown <= 0
       ) {
         calibrationSamples = [
-          ...calibrationSamples.slice(-17),
+          ...calibrationSamples.slice(-(CALIBRATION_MAX_SAMPLES - 1)),
           getHandSignature(hand),
         ];
         renderCalibration();
@@ -1257,14 +1421,26 @@ async function enableCamera() {
     video.srcObject = stream;
     await video.play();
     const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
-    handLandmarker = await HandLandmarker.createFromOptions(vision, {
+    const handLandmarkerOptions = {
       baseOptions: {
         modelAssetPath: HAND_LANDMARKER_MODEL_URL,
-        delegate: "GPU",
+        delegate: "GPU" as const,
       },
-      runningMode: "VIDEO",
+      runningMode: "VIDEO" as const,
       numHands: 2,
-    });
+      minHandDetectionConfidence: 0.4,
+      minHandPresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4,
+    };
+    try {
+      handLandmarker = await HandLandmarker.createFromOptions(vision, handLandmarkerOptions);
+    } catch (gpuError) {
+      console.warn("GPU недоступен, переключаю распознавание рук на CPU", gpuError);
+      handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        ...handLandmarkerOptions,
+        baseOptions: { ...handLandmarkerOptions.baseOptions, delegate: "CPU" },
+      });
+    }
     try {
       faceDetector = await FaceDetector.createFromOptions(vision, {
         baseOptions: { modelAssetPath: FACE_DETECTOR_MODEL_URL },
@@ -1284,11 +1460,24 @@ async function enableCamera() {
     setFeedback("Камера включена. Подними большой палец для точки");
     scheduleVideoProcessing();
   } catch (error) {
+    const stream = video.srcObject;
+    if (stream instanceof MediaStream) stream.getTracks().forEach((track) => track.stop());
+    video.srcObject = null;
+    handLandmarker?.close();
+    handLandmarker = null;
+    faceDetector?.close();
+    faceDetector = null;
     startCamera.disabled = false;
     startCamera.textContent = "ПОВТОРИТЬ ДОСТУП";
-    setFeedback(
-      "Не удалось открыть камеру. Разреши доступ к камере в браузере и повтори.",
-    );
+    const errorName = error instanceof DOMException ? error.name : "";
+    const message = errorName === "NotAllowedError" || errorName === "SecurityError"
+      ? "Разреши сайту доступ к камере в настройках браузера, затем нажми «Повторить доступ»."
+      : errorName === "NotFoundError"
+        ? "Камера не найдена. Подключи камеру и обнови страницу."
+        : errorName === "NotReadableError"
+          ? "Камера занята другим приложением. Закрой его и попробуй снова."
+          : "Не удалось запустить камеру или распознавание. Проверь разрешение камеры и обнови страницу.";
+    setFeedback(message);
     cameraStatus.innerHTML =
       '<span class="status-dot error"></span> НЕТ ДОСТУПА К КАМЕРЕ';
     console.error(error);
@@ -1312,6 +1501,7 @@ function disableCamera() {
   lastFaceDetectionAt = 0;
   lastFaceSeenAt = 0;
   lastVideoTime = -1;
+  noHandSince = null;
   receivedVideoFrames = 0;
   candidate = "none";
   candidateFrames = 0;
@@ -1324,6 +1514,7 @@ function disableCamera() {
   cameraStatus.innerHTML = '<span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА';
   gestureState.textContent = "Ожидаю жест";
   gestureHint.textContent = "Покажите руку в камеру";
+  if (calibrationMode) renderCalibration();
   setFeedback("Камера выключена");
 }
 startCamera.addEventListener("click", enableCamera);
@@ -1343,6 +1534,8 @@ clearButton.addEventListener("click", () => {
 transmitModeButton.addEventListener("click", () => setMode("transmit"));
 trainingModeButton.addEventListener("click", () => setMode("training"));
 wordModeButton.addEventListener("click", () => setMode("words"));
+echoModeButton.addEventListener("click", () => setMode("echo"));
+startEchoButton.addEventListener("click", startEchoGame);
 speedModeButton.addEventListener("click", () => setMode("speed"));
 calibrationModeButton.addEventListener("click", () => setMode("calibration"));
 startSpeed.addEventListener("click", startSpeedRound);

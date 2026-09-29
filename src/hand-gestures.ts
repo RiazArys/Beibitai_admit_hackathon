@@ -94,6 +94,21 @@ function isThumbOpen(hand: NormalizedLandmark[]): boolean {
   return jointAngle(hand[2], hand[3], hand[4]) > 140;
 }
 
+function isFingerFolded(
+  hand: NormalizedLandmark[],
+  mcp: number,
+  pip: number,
+  dip: number,
+  tip: number,
+): boolean {
+  // «Не поднят» не значит «согнут»: так неполный или закрытый кадр раньше
+  // мог ошибочно превращаться в команду кулака.
+  return (
+    jointAngle(hand[mcp], hand[pip], hand[dip]) < 155 ||
+    jointAngle(hand[pip], hand[dip], hand[tip]) < 145
+  );
+}
+
 /** Возвращает состояние каждого пальца с теми же порогами, что у классификатора. */
 export function getFingerStates(hand: NormalizedLandmark[]): FingerStates {
   return {
@@ -154,11 +169,10 @@ export function classifyHandGesture(hand: NormalizedLandmark[]): HandGesture {
   )
     return "open";
   if (
-    !thumbRaised &&
-    !indexRaised &&
-    !middleRaised &&
-    !ringRaised &&
-    !pinkyRaised
+    isFingerFolded(hand, 5, 6, 7, 8) &&
+    isFingerFolded(hand, 9, 10, 11, 12) &&
+    isFingerFolded(hand, 13, 14, 15, 16) &&
+    isFingerFolded(hand, 17, 18, 19, 20)
   )
     return "fist";
 
