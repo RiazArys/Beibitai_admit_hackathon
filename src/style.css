@@ -1774,3 +1774,152 @@ body.accessibility-mode .camera-stop-button {
     text-overflow: ellipsis;
   }
 }
+
+@media (max-width: 600px) {
+  .shell {
+    width: calc(100% - 24px);
+    padding: 12px 0 32px;
+  }
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px 8px;
+  }
+  .topbar-tools {
+    grid-column: 2 / 4;
+    grid-row: 1;
+    width: auto;
+  }
+  .top-status {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 8px;
+  }
+  .privacy-toggle,
+  .sound-toggle {
+    margin: 0;
+    min-height: 40px;
+    padding: 7px;
+    font-size: 8px;
+  }
+  .privacy-toggle {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .sound-toggle {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  .hero {
+    padding: 34px 0 25px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 9vw, 48px);
+    letter-spacing: -1.5px;
+  }
+  .hero-copy {
+    margin-top: 14px;
+    font-size: 14px;
+  }
+  .mission-chip {
+    width: 100%;
+    margin-top: 18px;
+  }
+  .mode-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+  .mode-button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 9px 7px;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+  }
+  .mode-button:last-child {
+    grid-column: 1 / -1;
+  }
+  .camera-card,
+  .terminal-card {
+    padding: 14px;
+  }
+  .camera-stage {
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+  .hand-placeholder small {
+    max-width: 80%;
+    text-align: center;
+  }
+  .recognition-state {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 11px;
+    font-size: 15px;
+  }
+  .recognition-state small {
+    flex-basis: 100%;
+    max-width: none;
+    margin-left: 18px;
+    text-align: left;
+    font-size: 12px;
+  }
+  .training-letter {
+    font-size: 76px;
+  }
+  .word-target {
+    font-size: clamp(30px, 9vw, 42px);
+    letter-spacing: 3px;
+  }
+  .training-progress strong,
+  .word-signal strong {
+    overflow-wrap: anywhere;
+    font-size: 21px;
+    letter-spacing: 3px;
+  }
+  .guide-section {
+    padding-top: 38px;
+  }
+  .section-heading h2 {
+    font-size: 26px;
+    letter-spacing: 0;
+  }
+  .feedback {
+    padding: 14px;
+    gap: 10px;
+  }
+  .feedback strong {
+    font-size: 13px;
+  }
+  .round-modal {
+    padding: 12px;
+  }
+  .round-modal-card {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    padding: 24px 18px;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand {
+    gap: 6px;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+  .top-status {
+    display: none;
+  }
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .privacy-toggle,
+  .sound-toggle {
+    font-size: 7px;
+  }
+  .round-modal-actions {
+    grid-template-columns: 1fr;
+  }
+}
