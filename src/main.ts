@@ -105,7 +105,7 @@ app.innerHTML = `
           <div class="decoded" id="decoded">_ _ _</div>
         </div>
         <div class="message"><small>СООБЩЕНИЕ</small><strong id="message">_ _ _</strong></div>
-        <button class="clear-button" id="clearSignal" type="button" aria-label="Очистить текущий сигнал и сообщение">ОЧИСТИТЬ СООБЩЕНИЕ</button>
+        <button class="clear-button" id="clearSignal" type="button" aria-label="Удалить последний введённый символ">УДАЛИТЬ СИМВОЛ</button>
         <div class="history"><small>ПОСЛЕДНИЕ РАДИОГРАММЫ</small><div id="historyList"></div></div>
         </div>
         <div class="training-mode hidden" id="trainingMode">
@@ -1204,10 +1204,15 @@ function disableCamera() {
 startCamera.addEventListener("click", enableCamera);
 stopCamera.addEventListener("click", disableCamera);
 clearButton.addEventListener("click", () => {
-  currentSignal = "";
-  currentMessage = "";
-  acceptedSignals = 0;
-  setFeedback("Текущий сигнал и сообщение очищены");
+  if (currentSignal) {
+    currentSignal = currentSignal.slice(0, -1);
+    setFeedback("Последний сигнал Морзе удалён");
+  } else if (currentMessage) {
+    currentMessage = currentMessage.slice(0, -1);
+    setFeedback("Последний символ сообщения удалён");
+  } else {
+    setFeedback("Сообщение уже пустое");
+  }
   renderTerminal();
 });
 transmitModeButton.addEventListener("click", () => setMode("transmit"));
