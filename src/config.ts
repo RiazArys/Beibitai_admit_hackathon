@@ -11,3 +11,4 @@ export const ROUND_DURATION_SECONDS = 120;
 /** Локальные статические файлы: на деплое не зависят от внешних CDN. */
 export const MEDIAPIPE_WASM_URL = "/wasm";
 export const HAND_LANDMARKER_MODEL_URL = "/models/hand_landmarker.task";
+export const FACE_DETECTOR_MODEL_URL = "/models/blaze_face_short_range.tflite";

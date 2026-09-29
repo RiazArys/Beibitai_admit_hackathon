@@ -777,6 +777,23 @@ button {
   letter-spacing: 0.7px;
   cursor: pointer;
 }
+.privacy-toggle {
+  margin-right: 8px;
+  padding: 7px 9px;
+  border: 1px solid #4a5964;
+  border-radius: 3px;
+  background: #0b1826;
+  color: #8da1b5;
+  font:
+    700 9px "DM Mono",
+    monospace;
+  letter-spacing: 0.7px;
+  cursor: pointer;
+}
+.privacy-toggle.active {
+  border-color: #63e6c5;
+  color: #63e6c5;
+}
 .sound-toggle.muted {
   border-color: #4a5964;
   color: #8da1b5;

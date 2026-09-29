@@ -2,6 +2,7 @@ import "./style.css";
 import morseChart from "../assets/morze.jpg";
 import {
   FilesetResolver,
+  FaceDetector,
   HandLandmarker,
   type NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
@@ -23,6 +24,7 @@ import {
   ROUND_DURATION_SECONDS,
   CAMERA_FRAME_RATE,
   DETECTION_FRAME_INTERVAL,
+  FACE_DETECTOR_MODEL_URL,
 } from "./config";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -56,6 +58,7 @@ app.innerHTML = `
         </button>
       </div>
       <div class="top-status" id="cameraStatus"><span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА</div>
+      <button class="privacy-toggle active" id="privacyToggle" type="button">ЛИЦО: СКРЫТО</button>
       <button class="sound-toggle" id="soundToggle" type="button">ЗВУК: ВКЛ</button>
     </header>
 
@@ -282,6 +285,7 @@ const stopCamera = document.querySelector<HTMLButtonElement>("#stopCamera")!;
 const placeholder =
   document.querySelector<HTMLDivElement>("#cameraPlaceholder")!;
 const cameraStatus = document.querySelector<HTMLDivElement>("#cameraStatus")!;
+const privacyToggle = document.querySelector<HTMLButtonElement>("#privacyToggle")!;
 const soundToggle = document.querySelector<HTMLButtonElement>("#soundToggle")!;
 const gestureState = document.querySelector<HTMLSpanElement>("#gestureState")!;
 const gestureHint = document.querySelector<HTMLElement>("#gestureHint")!;
@@ -372,6 +376,13 @@ const resetCalibration =
   document.querySelector<HTMLButtonElement>("#resetCalibration")!;
 
 let handLandmarker: HandLandmarker | null = null;
+let faceDetector: FaceDetector | null = null;
+type FaceBox = { originX: number; originY: number; width: number; height: number };
+let detectedFaces: FaceBox[] = [];
+let lastFaceDetectionAt = 0;
+let facePrivacyEnabled = true;
+const faceMosaicCanvas = document.createElement("canvas");
+const faceMosaicContext = faceMosaicCanvas.getContext("2d")!;
 let videoFrameRequest: number | null = null;
 let currentSignal = "";
 let currentMessage = "";
@@ -1002,10 +1013,39 @@ function acceptGesture(gesture: string) {
   }
   renderTerminal();
 }
-function drawHand(hand: NormalizedLandmark[]) {
+function drawFaceMosaic() {
+  for (const face of detectedFaces) {
+    const padding = Math.max(face.width, face.height) * 0.16;
+    const x = Math.max(0, face.originX - padding);
+    const y = Math.max(0, face.originY - padding);
+    const width = Math.min(canvas.width - x, face.width + padding * 2);
+    const height = Math.min(canvas.height - y, face.height + padding * 2);
+    const mosaicWidth = Math.max(1, Math.ceil(width / 13));
+    const mosaicHeight = Math.max(1, Math.ceil(height / 13));
+
+    faceMosaicCanvas.width = mosaicWidth;
+    faceMosaicCanvas.height = mosaicHeight;
+    faceMosaicContext.imageSmoothingEnabled = false;
+    faceMosaicContext.drawImage(video, x, y, width, height, 0, 0, mosaicWidth, mosaicHeight);
+    context.save();
+    context.imageSmoothingEnabled = false;
+    context.drawImage(faceMosaicCanvas, 0, 0, mosaicWidth, mosaicHeight, x, y, width, height);
+    context.restore();
+  }
+}
+
+function renderPrivacyToggle() {
+  privacyToggle.textContent = facePrivacyEnabled ? "ЛИЦО: СКРЫТО" : "ЛИЦО: ВИДНО";
+  privacyToggle.classList.toggle("active", facePrivacyEnabled);
+  privacyToggle.setAttribute("aria-pressed", String(facePrivacyEnabled));
+}
+
+function drawCameraOverlay(hand?: NormalizedLandmark[]) {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   context.clearRect(0, 0, canvas.width, canvas.height);
+  if (facePrivacyEnabled) drawFaceMosaic();
+  if (!hand) return;
   context.lineWidth = 4;
   context.strokeStyle = "#63e6c5";
   context.fillStyle = "#effffb";
@@ -1033,6 +1073,26 @@ function drawHand(hand: NormalizedLandmark[]) {
     context.fill();
   }
 }
+
+function updateFaceMosaic(timestamp: number) {
+  if (!facePrivacyEnabled || !faceDetector) {
+    detectedFaces = [];
+    return;
+  }
+  if (timestamp - lastFaceDetectionAt < 100) return;
+  lastFaceDetectionAt = timestamp;
+  const result = faceDetector.detectForVideo(video, timestamp);
+  detectedFaces = result.detections.flatMap((detection) =>
+    detection.boundingBox
+      ? [{
+          originX: detection.boundingBox.originX,
+          originY: detection.boundingBox.originY,
+          width: detection.boundingBox.width,
+          height: detection.boundingBox.height,
+        }]
+      : [],
+  );
+}
 function scheduleVideoProcessing() {
   if (videoFrameRequest !== null) return;
   videoFrameRequest = requestAnimationFrame(() => {
@@ -1059,8 +1119,11 @@ function processVideo() {
     scheduleVideoProcessing();
     return;
   }
-  const result = handLandmarker.detectForVideo(video, performance.now());
+  const timestamp = performance.now();
+  updateFaceMosaic(timestamp);
+  const result = handLandmarker.detectForVideo(video, timestamp);
   const hand = result.landmarks[0];
+  drawCameraOverlay(hand);
   if (!hand) {
     gestureState.textContent = "Рука не найдена";
     gestureHint.textContent = "Покажи кисть целиком";
@@ -1068,9 +1131,7 @@ function processVideo() {
     candidate = "none";
     latched = false;
     candidateFrames = 0;
-    context.clearRect(0, 0, canvas.width, canvas.height);
   } else {
-    drawHand(hand);
     if (calibrationMode) {
       if (
         calibrationStepIndex < calibrationSteps.length &&
@@ -1156,6 +1217,17 @@ async function enableCamera() {
       runningMode: "VIDEO",
       numHands: 2,
     });
+    try {
+      faceDetector = await FaceDetector.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: FACE_DETECTOR_MODEL_URL },
+        runningMode: "VIDEO",
+        minDetectionConfidence: 0.55,
+      });
+    } catch (faceError) {
+      facePrivacyEnabled = false;
+      renderPrivacyToggle();
+      console.warn("Не удалось включить маску лица", faceError);
+    }
     placeholder.classList.add("hidden");
     stopCamera.classList.remove("hidden");
     cameraStatus.innerHTML = '<span class="status-dot"></span> КАМЕРА В ЭФИРЕ';
@@ -1186,6 +1258,10 @@ function disableCamera() {
   video.srcObject = null;
   handLandmarker?.close();
   handLandmarker = null;
+  faceDetector?.close();
+  faceDetector = null;
+  detectedFaces = [];
+  lastFaceDetectionAt = 0;
   lastVideoTime = -1;
   receivedVideoFrames = 0;
   candidate = "none";
@@ -1248,6 +1324,16 @@ soundToggle.addEventListener("click", () => {
   renderSoundToggle();
   setFeedback(soundEnabled ? "Звук включён. Включи камеру, чтобы активировать аудио." : "Звук выключен.");
 });
+privacyToggle.addEventListener("click", () => {
+  facePrivacyEnabled = !facePrivacyEnabled;
+  if (!facePrivacyEnabled) detectedFaces = [];
+  renderPrivacyToggle();
+  setFeedback(
+    facePrivacyEnabled
+      ? "Мозаика лица включена. Лицо скрывается только в окне камеры."
+      : "Мозаика лица выключена.",
+  );
+});
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) updateSpeedTimer();
 });
@@ -1255,3 +1341,4 @@ exitTraining.addEventListener("click", () => setMode("transmit"));
 exitWords.addEventListener("click", () => setMode("transmit"));
 renderTerminal();
 renderSoundToggle();
+renderPrivacyToggle();
