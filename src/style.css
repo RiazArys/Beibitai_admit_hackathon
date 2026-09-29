@@ -1091,9 +1091,22 @@ button {
   background: #0d2431;
 }
 .gesture-icon {
-  font-size: 34px;
-  line-height: 1;
+  width: 42px;
+  height: 42px;
   margin-bottom: 13px;
+  color: #63e6c5;
+}
+.gesture-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3.2;
+}
+.gesture-icon.double {
+  width: 48px;
 }
 .gesture span {
   color: #63e6c5;
