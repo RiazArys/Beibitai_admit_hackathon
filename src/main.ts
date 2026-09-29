@@ -1091,7 +1091,12 @@ function isFaceCoveredByHand(face: FaceBox, hand: NormalizedLandmark[]) {
     Math.min(face.originY + face.height, handBottom) - Math.max(face.originY, handTop),
   );
   const overlapArea = overlapWidth * overlapHeight;
-  return overlapArea / Math.max(face.width * face.height, 1) > 0.62;
+  const handArea = (handRight - handLeft) * (handBottom - handTop);
+  return overlapArea / Math.max(Math.min(face.width * face.height, handArea), 1) > 0.48;
+}
+
+function getFaceCenter(face: FaceBox) {
+  return { x: face.originX + face.width / 2, y: face.originY + face.height / 2 };
 }
 
 function updateFaceMosaic(timestamp: number, hands: NormalizedLandmark[][]) {
@@ -1112,8 +1117,25 @@ function updateFaceMosaic(timestamp: number, hands: NormalizedLandmark[][]) {
         }]
       : [],
   ).filter((face) => !hands.some((hand) => isFaceCoveredByHand(face, hand)));
-  if (faces.length) {
-    detectedFaces = faces;
+  const previousFace = detectedFaces[0];
+  const nearestFace = previousFace
+    ? faces
+        .map((face) => {
+          const previousCenter = getFaceCenter(previousFace);
+          const center = getFaceCenter(face);
+          return { face, distance: Math.hypot(center.x - previousCenter.x, center.y - previousCenter.y) };
+        })
+        .sort((first, second) => first.distance - second.distance)[0]
+    : undefined;
+  const stableFace =
+    previousFace && nearestFace
+      ? nearestFace.distance < Math.max(previousFace.width, previousFace.height) * 0.9
+        ? nearestFace.face
+        : undefined
+      : faces[0];
+
+  if (stableFace) {
+    detectedFaces = [stableFace];
     lastFaceSeenAt = timestamp;
   } else if (timestamp - lastFaceSeenAt > 450) {
     detectedFaces = [];
