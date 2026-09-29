@@ -1075,7 +1075,26 @@ function drawCameraOverlay(hand?: NormalizedLandmark[]) {
   }
 }
 
-function updateFaceMosaic(timestamp: number) {
+function isFaceCoveredByHand(face: FaceBox, hand: NormalizedLandmark[]) {
+  const xValues = hand.map((point) => point.x * video.videoWidth);
+  const yValues = hand.map((point) => point.y * video.videoHeight);
+  const handLeft = Math.min(...xValues);
+  const handTop = Math.min(...yValues);
+  const handRight = Math.max(...xValues);
+  const handBottom = Math.max(...yValues);
+  const overlapWidth = Math.max(
+    0,
+    Math.min(face.originX + face.width, handRight) - Math.max(face.originX, handLeft),
+  );
+  const overlapHeight = Math.max(
+    0,
+    Math.min(face.originY + face.height, handBottom) - Math.max(face.originY, handTop),
+  );
+  const overlapArea = overlapWidth * overlapHeight;
+  return overlapArea / Math.max(face.width * face.height, 1) > 0.62;
+}
+
+function updateFaceMosaic(timestamp: number, hands: NormalizedLandmark[][]) {
   if (!facePrivacyEnabled || !faceDetector) {
     detectedFaces = [];
     return;
@@ -1092,7 +1111,7 @@ function updateFaceMosaic(timestamp: number) {
           height: detection.boundingBox.height,
         }]
       : [],
-  );
+  ).filter((face) => !hands.some((hand) => isFaceCoveredByHand(face, hand)));
   if (faces.length) {
     detectedFaces = faces;
     lastFaceSeenAt = timestamp;
@@ -1127,8 +1146,8 @@ function processVideo() {
     return;
   }
   const timestamp = performance.now();
-  updateFaceMosaic(timestamp);
   const result = handLandmarker.detectForVideo(video, timestamp);
+  updateFaceMosaic(timestamp, result.landmarks);
   const hand = result.landmarks[0];
   drawCameraOverlay(hand);
   if (!hand) {
