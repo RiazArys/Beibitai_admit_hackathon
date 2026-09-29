@@ -380,6 +380,7 @@ let faceDetector: FaceDetector | null = null;
 type FaceBox = { originX: number; originY: number; width: number; height: number };
 let detectedFaces: FaceBox[] = [];
 let lastFaceDetectionAt = 0;
+let lastFaceSeenAt = 0;
 let facePrivacyEnabled = true;
 const faceMosaicCanvas = document.createElement("canvas");
 const faceMosaicContext = faceMosaicCanvas.getContext("2d")!;
@@ -1082,7 +1083,7 @@ function updateFaceMosaic(timestamp: number) {
   if (timestamp - lastFaceDetectionAt < 100) return;
   lastFaceDetectionAt = timestamp;
   const result = faceDetector.detectForVideo(video, timestamp);
-  detectedFaces = result.detections.flatMap((detection) =>
+  const faces = result.detections.flatMap((detection) =>
     detection.boundingBox
       ? [{
           originX: detection.boundingBox.originX,
@@ -1092,6 +1093,12 @@ function updateFaceMosaic(timestamp: number) {
         }]
       : [],
   );
+  if (faces.length) {
+    detectedFaces = faces;
+    lastFaceSeenAt = timestamp;
+  } else if (timestamp - lastFaceSeenAt > 450) {
+    detectedFaces = [];
+  }
 }
 function scheduleVideoProcessing() {
   if (videoFrameRequest !== null) return;
@@ -1221,7 +1228,7 @@ async function enableCamera() {
       faceDetector = await FaceDetector.createFromOptions(vision, {
         baseOptions: { modelAssetPath: FACE_DETECTOR_MODEL_URL },
         runningMode: "VIDEO",
-        minDetectionConfidence: 0.55,
+        minDetectionConfidence: 0.35,
       });
     } catch (faceError) {
       facePrivacyEnabled = false;
@@ -1262,6 +1269,7 @@ function disableCamera() {
   faceDetector = null;
   detectedFaces = [];
   lastFaceDetectionAt = 0;
+  lastFaceSeenAt = 0;
   lastVideoTime = -1;
   receivedVideoFrames = 0;
   candidate = "none";
@@ -1326,7 +1334,10 @@ soundToggle.addEventListener("click", () => {
 });
 privacyToggle.addEventListener("click", () => {
   facePrivacyEnabled = !facePrivacyEnabled;
-  if (!facePrivacyEnabled) detectedFaces = [];
+  if (!facePrivacyEnabled) {
+    detectedFaces = [];
+    lastFaceSeenAt = 0;
+  }
   renderPrivacyToggle();
   setFeedback(
     facePrivacyEnabled
