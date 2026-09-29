@@ -98,10 +98,20 @@ MorseMotion не ограничивается сообщением «жест н
 
 Нужен Node.js 20+.
 
+### Windows: быстрый запуск
+
+Скачайте или клонируйте репозиторий и дважды нажмите [`install.bat`](install.bat). Скрипт сам проверит Node.js и npm, перейдёт в папку проекта и установит версии зависимостей, зафиксированные в `package-lock.json`. Затем выполните:
+
+```bash
+npm run dev
+```
+
+### Любая ОС: запуск через терминал
+
 ```bash
 git clone https://github.com/RiazArys/Beibitai_admit_hackathon.git
 cd Beibitai_admit_hackathon
-npm install
+npm ci
 npm run dev
 ```
 
@@ -115,6 +125,7 @@ src/
 ├── morse.ts          # Таблица Морзе и форматирование сигналов
 ├── hand-gestures.ts  # Собственные правила распознавания поз пальцев
 └── style.css         # Внешний вид и анимации
+install.bat            # Установка зависимостей в Windows
 ```
 
 ## Условия для устойчивой работы
