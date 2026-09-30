@@ -26,4 +26,4 @@
 
 **Репозиторий:** https://github.com/RiazArys/Beibitai_admit_hackathon
 
-**Деплой:** добавить URL после публикации на Vercel.
+**Деплой:** [https://beibitai-admit-hackathon.vercel.app/](https://beibitai-admit-hackathon.vercel.app/)

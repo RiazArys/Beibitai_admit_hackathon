@@ -197,9 +197,7 @@ MediaPipe обрабатывает точки кисти и прямоуголь
 - Для веб-камеры нужен HTTPS: адрес Vercel подходит. Разрешение камеры выдаётся в настройках браузера для этого домена.
 - Модели `hand_landmarker.task`, `blaze_face_short_range.tflite` и файлы WASM MediaPipe уже лежат в `public/`, поэтому распознавание не зависит от внешнего CDN. Для отображения тонких иконок интерфейса загружается CSS-шрифт Flaticon UIcons; если он временно недоступен, камера и распознавание всё равно работают.
 
-После успешной публикации вставьте production-адрес в это поле и в `SUBMISSION.md`:
-
-`https://<ваш-проект>.vercel.app`
+**Рабочая версия:** [beibitai-admit-hackathon.vercel.app](https://beibitai-admit-hackathon.vercel.app/)
 
 © 2026 BeibitAI., см. LICENSE
 
