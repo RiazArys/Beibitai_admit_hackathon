@@ -32,6 +32,7 @@ const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("Application root was not found");
 
 let soundEnabled = loadSoundEnabled();
+const ONBOARDING_STORAGE_KEY = "morsemotion-onboarding-seen";
 
 app.innerHTML = `
   <main class="shell">
@@ -45,23 +46,23 @@ app.innerHTML = `
           <span class="appearance-label">ТЕМА</span>
           <div class="theme-switcher">
             <button class="theme-button active" data-theme="dark" type="button" aria-pressed="true" aria-label="Тёмная тема" title="Тёмная тема">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.8 12.8A7.1 7.1 0 0 1 7.2 3.2a7.4 7.4 0 1 0 9.6 9.6Z" /></svg>
+              <i class="fi-tr-moon" aria-hidden="true"></i>
               <span>Тёмная</span>
             </button>
             <button class="theme-button" data-theme="light" type="button" aria-pressed="false" aria-label="Светлая тема" title="Светлая тема">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.5" /><path d="M10 1.8v2M10 16.2v2M18.2 10h-2M3.8 10h-2m14-5.8-1.4 1.4M5.6 14.4l-1.4 1.4m11.6 0-1.4-1.4M5.6 5.6 4.2 4.2" /></svg>
+              <i class="fi-tr-sun" aria-hidden="true"></i>
               <span>Светлая</span>
             </button>
           </div>
         </div>
         <button class="a11y-button" id="accessibilityToggle" type="button" aria-pressed="false">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 10s2.8-5 8-5 8 5 8 5-2.8 5-8 5-8-5-8-5Z" /><circle cx="10" cy="10" r="2.1" /><path d="m4 17 12-14" class="a11y-slash" /></svg>
+          <i class="fi-tr-eye-scanner" aria-hidden="true"></i>
           <span>Доступность</span>
         </button>
       </div>
       <div class="top-status" id="cameraStatus"><span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА</div>
-      <button class="privacy-toggle active" id="privacyToggle" type="button">ЛИЦО: СКРЫТО</button>
-      <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true">ЗВУК: ВКЛ</button>
+      <button class="privacy-toggle active" id="privacyToggle" type="button"><i class="fi-tr-eye-scanner" aria-hidden="true"></i> ЛИЦО: СКРЫТО</button>
+      <button class="sound-toggle" id="soundToggle" type="button" aria-pressed="true"><i class="fi-tr-volume-control" aria-hidden="true"></i> ЗВУК: ВКЛ</button>
     </header>
 
     <section class="hero">
@@ -81,6 +82,7 @@ app.innerHTML = `
       <button class="mode-button" id="speedModeButton" type="button">СКОРОСТЬ</button>
       <button class="mode-button" id="calibrationModeButton" type="button">КАЛИБРОВКА</button>
     </nav>
+    <button class="mobile-camera-button" id="startCameraMobile" type="button">ВКЛЮЧИТЬ КАМЕРУ</button>
 
     <section class="dashboard">
       <article class="camera-card">
@@ -90,7 +92,7 @@ app.innerHTML = `
           <div class="grid"></div>
           <div class="hand-placeholder" id="cameraPlaceholder">
             <div class="scanner"></div>
-            <span class="hand-icon">☝</span>
+            <span class="hand-icon"><i class="fi-tr-camera" aria-hidden="true"></i></span>
             <p>ВКЛЮЧИТЕ КАМЕРУ</p>
             <small>Разрешите доступ, чтобы начать передачу</small>
             <button class="camera-button" id="startCamera" type="button">ВКЛЮЧИТЬ КАМЕРУ</button>
@@ -111,7 +113,7 @@ app.innerHTML = `
           <div class="decoded" id="decoded">_ _ _</div>
         </div>
         <div class="message"><small>СООБЩЕНИЕ</small><strong id="message">_ _ _</strong></div>
-        <button class="clear-button" id="clearSignal" type="button" aria-label="Удалить последний введённый символ">УДАЛИТЬ СИМВОЛ</button>
+        <button class="clear-button" id="clearSignal" type="button" aria-label="Удалить последний введённый символ"><i class="fi-tr-trash-undo" aria-hidden="true"></i> УДАЛИТЬ СИМВОЛ</button>
         <div class="history"><small>ПОСЛЕДНИЕ РАДИОГРАММЫ</small><div id="historyList"></div></div>
         </div>
         <div class="training-mode hidden" id="trainingMode">
@@ -162,7 +164,7 @@ app.innerHTML = `
         <div class="training-mode hidden" id="calibrationMode">
           <div class="card-label">PERSONAL CALIBRATION <span id="calibrationStep">1 / 5</span></div>
           <p class="training-kicker">ПОКАЖИ ЖЕСТ ПЕРЕД КАМЕРОЙ</p>
-          <strong class="calibration-icon" id="calibrationIcon">👍</strong>
+          <strong class="calibration-icon" id="calibrationIcon"><i class="fi-tr-thumbs-up-trust" aria-hidden="true"></i></strong>
           <strong class="calibration-name" id="calibrationName">ТОЧКА</strong>
           <p class="training-help" id="calibrationHelp">Подними только большой палец, удерживай руку спокойно и сохрани образец.</p>
           <div class="calibration-meter"><span id="calibrationSamples">КАМЕРА ЖДЁТ РУКУ</span></div>
@@ -183,17 +185,19 @@ app.innerHTML = `
     <section class="guide-section">
       <div class="section-heading"><p class="eyebrow">КАК УПРАВЛЯТЬ</p><h2>Твой язык жестов</h2></div>
       <div class="gesture-grid">
-        <article class="gesture active" role="button" tabindex="0" aria-pressed="true"><div class="gesture-icon" aria-hidden="true">👍</div><div><span>ТОЧКА</span><strong>Большой палец</strong><p>Подними только большой палец</p></div><b>·</b></article>
-        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon" aria-hidden="true">☝</div><div><span>ТИРЕ</span><strong>Указательный палец</strong><p>Подними только указательный палец</p></div><b>—</b></article>
-        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon" aria-hidden="true">✌</div><div><span>ПРОБЕЛ</span><strong>Два пальца</strong><p>Большой и указательный вместе</p></div><b>␣</b></article>
-        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon" aria-hidden="true">✋</div><div><span>ГОТОВО</span><strong>Открытая ладонь</strong><p>Завершить текущую букву</p></div><b>↵</b></article>
-        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon double" aria-hidden="true">🙌</div><div><span>СБРОС</span><strong>Две ладони</strong><p>Очистить всё сообщение</p></div><b>×</b></article>
-        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon double" aria-hidden="true">✊✊</div><div><span>ОТПРАВИТЬ</span><strong>Два кулака</strong><p>Передать радиограмму</p></div><b>↗</b></article>
+        <article class="gesture active" role="button" tabindex="0" aria-pressed="true"><div class="gesture-icon" aria-hidden="true"><i class="fi-tr-thumbs-up-trust"></i></div><div><span>ТОЧКА</span><strong>Большой палец</strong><p>Подними только большой палец</p></div><b>·</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon" aria-hidden="true"><i class="fi-ts-hand-back-point-ribbon"></i></div><div><span>ТИРЕ</span><strong>Указательный палец</strong><p>Подними только указательный палец</p></div><b>—</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon" aria-hidden="true"><i class="fi-tr-hand-peace"></i></div><div><span>ПРОБЕЛ</span><strong>Два пальца</strong><p>Большой и указательный вместе</p></div><b>␣</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon" aria-hidden="true"><i class="fi-tr-hand-paper"></i></div><div><span>ГОТОВО</span><strong>Открытая ладонь</strong><p>Завершить текущую букву</p></div><b>↵</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon" aria-hidden="true"><i class="fi-tr-hand-fist"></i></div><div><span>УДАЛИТЬ</span><strong>Один кулак</strong><p>Удалить последний сигнал</p></div><b>⌫</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon double pair" aria-hidden="true"><i class="fi-tr-hand-paper"></i><i class="fi-tr-hand-paper"></i></div><div><span>СБРОС</span><strong>Две ладони</strong><p>Очистить всё сообщение</p></div><b>×</b></article>
+        <article class="gesture" role="button" tabindex="0" aria-pressed="false"><div class="gesture-icon double pair" aria-hidden="true"><i class="fi-tr-hand-fist"></i><i class="fi-tr-hand-fist"></i></div><div><span>ОТПРАВИТЬ</span><strong>Два кулака</strong><p>Передать радиограмму</p></div><b>↗</b></article>
       </div>
     </section>
 
-    <section class="feedback"><div class="feedback-icon">!</div><div><span>ПОДСКАЗКА</span><strong id="feedbackText">Включите камеру и покажите руку целиком</strong></div><div class="accuracy"><span>ТОЧНОСТЬ</span><b id="accuracy">—</b></div></section>
+    <section class="feedback"><div class="feedback-icon"><i class="fi-tr-eye-alert" aria-hidden="true"></i></div><div><span>ПОДСКАЗКА</span><strong id="feedbackText">Включите камеру и покажите руку целиком</strong></div><div class="accuracy"><span>ТОЧНОСТЬ</span><b id="accuracy">—</b></div></section>
     <section class="result-panel hidden" id="resultPanel" aria-live="polite"><span>РАДИОГРАММА ПЕРЕДАНА</span><strong id="sentMessage"></strong><small>Сигнал успешно отправлен в эфир</small></section>
+    <footer class="icon-attribution">Иконки интерфейса: <a href="https://www.flaticon.com/uicons" target="_blank" rel="noreferrer">Uicons by Flaticon</a></footer>
     <section class="round-modal hidden" id="roundModal" role="dialog" aria-modal="true" aria-labelledby="roundModalTitle">
       <div class="round-modal-card">
         <span>РЕЖИМ СКОРОСТИ</span>
@@ -210,6 +214,23 @@ app.innerHTML = `
           <button class="speed-start" id="restartSpeedRound" type="button">ЕЩЁ РАЗ</button>
           <button class="clear-button" id="closeRoundModal" type="button">ЗАКРЫТЬ</button>
         </div>
+      </div>
+    </section>
+    <section class="onboarding-modal hidden" id="onboardingModal" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+      <div class="onboarding-card">
+        <span>ПЕРВЫЙ ЗАПУСК</span>
+        <strong id="onboardingTitle">КАК УПРАВЛЯТЬ</strong>
+        <p>Показывай жесты перед камерой и удерживай их примерно 0,3 секунды.</p>
+        <ul class="onboarding-list">
+          <li><b aria-hidden="true">👍</b><span><strong>Точка</strong> — большой палец</span></li>
+          <li><b aria-hidden="true">☝</b><span><strong>Тире</strong> — указательный палец</span></li>
+          <li><b aria-hidden="true">✌</b><span><strong>Пробел</strong> — большой и указательный</span></li>
+          <li><b aria-hidden="true">✋</b><span><strong>Готово</strong> — завершить букву</span></li>
+          <li><b aria-hidden="true">✊</b><span><strong>Удалить</strong> — последний сигнал</span></li>
+          <li><b aria-hidden="true">🙌</b><span><strong>Сброс</strong> — очистить сообщение</span></li>
+          <li><b aria-hidden="true">✊✊</b><span><strong>Отправить</strong> — передать радиограмму</span></li>
+        </ul>
+        <button class="speed-start" id="closeOnboarding" type="button">ПОНЯТНО</button>
       </div>
     </section>
   </main>
@@ -302,6 +323,9 @@ const video = document.querySelector<HTMLVideoElement>("#webcam")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#handCanvas")!;
 const context = canvas.getContext("2d")!;
 const startCamera = document.querySelector<HTMLButtonElement>("#startCamera")!;
+const startCameraMobile =
+  document.querySelector<HTMLButtonElement>("#startCameraMobile")!;
+const cameraStartButtons = [startCamera, startCameraMobile];
 const stopCamera = document.querySelector<HTMLButtonElement>("#stopCamera")!;
 const placeholder =
   document.querySelector<HTMLDivElement>("#cameraPlaceholder")!;
@@ -350,6 +374,19 @@ const restartSpeedRound =
   document.querySelector<HTMLButtonElement>("#restartSpeedRound")!;
 const closeRoundModal =
   document.querySelector<HTMLButtonElement>("#closeRoundModal")!;
+const onboardingModal = document.querySelector<HTMLElement>("#onboardingModal")!;
+const closeOnboarding =
+  document.querySelector<HTMLButtonElement>("#closeOnboarding")!;
+
+function showOnboardingIfNeeded() {
+  try {
+    if (localStorage.getItem(ONBOARDING_STORAGE_KEY) === "true") return;
+  } catch {
+    // Если хранилище недоступно, инструкция всё равно показывается в этой вкладке.
+  }
+
+  onboardingModal.classList.remove("hidden");
+}
 const transmitMode = document.querySelector<HTMLElement>("#transmitMode")!;
 const trainingModeElement =
   document.querySelector<HTMLElement>("#trainingMode")!;
@@ -492,14 +529,14 @@ const HAND_LOST_GESTURE_RESET_MS = 220;
 const calibrationSteps: Array<{
   gesture: CalibrationGesture;
   name: string;
-  icon: string;
+  iconClass: string;
   help: string;
 }> = [
-  { gesture: "dot", name: "ТОЧКА", icon: "👍", help: "Подними только большой палец." },
-  { gesture: "dash", name: "ТИРЕ", icon: "☝", help: "Подними только указательный палец." },
-  { gesture: "space", name: "ПРОБЕЛ", icon: "✌", help: "Подними большой и указательный пальцы." },
-  { gesture: "open", name: "ГОТОВО", icon: "✋", help: "Раскрой ладонь и выпрями все пальцы." },
-  { gesture: "fist", name: "УДАЛИТЬ", icon: "✊", help: "Сожми кисть в кулак." },
+  { gesture: "dot", name: "ТОЧКА", iconClass: "fi-tr-thumbs-up-trust", help: "Подними только большой палец." },
+  { gesture: "dash", name: "ТИРЕ", iconClass: "fi-ts-hand-back-point-ribbon", help: "Подними только указательный палец." },
+  { gesture: "space", name: "ПРОБЕЛ", iconClass: "fi-tr-hand-peace", help: "Подними большой и указательный пальцы." },
+  { gesture: "open", name: "ГОТОВО", iconClass: "fi-tr-hand-paper", help: "Раскрой ладонь и выпрями все пальцы." },
+  { gesture: "fist", name: "УДАЛИТЬ", iconClass: "fi-tr-hand-fist", help: "Сожми кисть в кулак." },
 ];
 let calibrationMode = false;
 let calibrationStepIndex = 0;
@@ -524,7 +561,8 @@ function renderSoundToggle() {
   const label = document.body.classList.contains("accessibility-mode")
     ? "ГОЛОС"
     : "ЗВУК";
-  soundToggle.textContent = `${label}: ${soundEnabled ? "ВКЛ" : "ВЫКЛ"}`;
+  const icon = soundEnabled ? "fi-tr-volume-control" : "fi-tr-volume-off";
+  soundToggle.innerHTML = `<i class="${icon}" aria-hidden="true"></i> ${label}: ${soundEnabled ? "ВКЛ" : "ВЫКЛ"}`;
   soundToggle.classList.toggle("muted", !soundEnabled);
   soundToggle.setAttribute("aria-pressed", String(soundEnabled));
 }
@@ -654,7 +692,7 @@ function renderCalibration() {
   const step = calibrationSteps[calibrationStepIndex];
   if (!step) {
     calibrationStepElement.textContent = "ГОТОВО";
-    calibrationIcon.textContent = "✓";
+    calibrationIcon.innerHTML = '<i class="fi-tr-check-circle" aria-hidden="true"></i>';
     calibrationName.textContent = "ЖЕСТЫ СОХРАНЕНЫ";
     calibrationHelp.textContent = "Теперь приложение учитывает форму твоей руки. При необходимости калибровку можно пройти заново.";
     calibrationSamplesElement.textContent = "5 ИЗ 5 ЖЕСТОВ ГОТОВЫ";
@@ -663,7 +701,7 @@ function renderCalibration() {
     return;
   }
   calibrationStepElement.textContent = `${calibrationStepIndex + 1} / ${calibrationSteps.length}`;
-  calibrationIcon.textContent = step.icon;
+  calibrationIcon.innerHTML = `<i class="${step.iconClass}" aria-hidden="true"></i>`;
   calibrationName.textContent = step.name;
   calibrationHelp.textContent = step.help;
   const hasCamera = Boolean(video.srcObject);
@@ -1222,7 +1260,8 @@ function drawFaceMosaic() {
 }
 
 function renderPrivacyToggle() {
-  privacyToggle.textContent = facePrivacyEnabled ? "ЛИЦО: СКРЫТО" : "ЛИЦО: ВИДНО";
+  const icon = facePrivacyEnabled ? "fi-tr-eye-scanner" : "fi-tr-eyes";
+  privacyToggle.innerHTML = `<i class="${icon}" aria-hidden="true"></i> ${facePrivacyEnabled ? "ЛИЦО: СКРЫТО" : "ЛИЦО: ВИДНО"}`;
   privacyToggle.classList.toggle("active", facePrivacyEnabled);
   privacyToggle.setAttribute("aria-pressed", String(facePrivacyEnabled));
 }
@@ -1437,11 +1476,17 @@ function processVideo() {
   }
   scheduleVideoProcessing();
 }
+function setCameraStartButtons(disabled: boolean, label: string) {
+  cameraStartButtons.forEach((button) => {
+    button.disabled = disabled;
+    button.textContent = label;
+  });
+}
+
 async function enableCamera() {
   try {
     await prepareAudio();
-    startCamera.disabled = true;
-    startCamera.textContent = "ПОДКЛЮЧЕНИЕ…";
+    setCameraStartButtons(true, "ПОДКЛЮЧЕНИЕ…");
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: "user",
@@ -1500,8 +1545,7 @@ async function enableCamera() {
     handLandmarker = null;
     faceDetector?.close();
     faceDetector = null;
-    startCamera.disabled = false;
-    startCamera.textContent = "ПОВТОРИТЬ ДОСТУП";
+    setCameraStartButtons(false, "ПОВТОРИТЬ ДОСТУП");
     const errorName = error instanceof DOMException ? error.name : "";
     const message = errorName === "NotAllowedError" || errorName === "SecurityError"
       ? "Разреши сайту доступ к камере в настройках браузера, затем нажми «Повторить доступ»."
@@ -1542,15 +1586,14 @@ function disableCamera() {
   context.clearRect(0, 0, canvas.width, canvas.height);
   placeholder.classList.remove("hidden");
   stopCamera.classList.add("hidden");
-  startCamera.disabled = false;
-  startCamera.textContent = "ВКЛЮЧИТЬ КАМЕРУ";
+  setCameraStartButtons(false, "ВКЛЮЧИТЬ КАМЕРУ");
   cameraStatus.innerHTML = '<span class="status-dot"></span> КАМЕРА НЕ ПОДКЛЮЧЕНА';
   gestureState.textContent = "Ожидаю жест";
   gestureHint.textContent = "Покажите руку в камеру";
   if (calibrationMode) renderCalibration();
   setFeedback("Камера выключена");
 }
-startCamera.addEventListener("click", enableCamera);
+cameraStartButtons.forEach((button) => button.addEventListener("click", enableCamera));
 stopCamera.addEventListener("click", disableCamera);
 clearButton.addEventListener("click", () => {
   if (currentSignal) {
@@ -1633,6 +1676,15 @@ toggleMorseChartButton.addEventListener("click", () => {
   setMorseChartHidden(hidden);
   setFeedback(hidden ? "Таблица азбуки Морзе скрыта." : "Таблица азбуки Морзе показана.");
 });
+closeOnboarding.addEventListener("click", () => {
+  onboardingModal.classList.add("hidden");
+  try {
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, "true");
+  } catch {
+    // Браузер может запрещать localStorage в приватном режиме.
+  }
+});
 renderTerminal();
 renderSoundToggle();
 renderPrivacyToggle();
+showOnboardingIfNeeded();
