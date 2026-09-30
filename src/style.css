@@ -339,6 +339,35 @@
   margin: 19px 0 22px;
   letter-spacing: 5px;
 }
+.echo-code {
+  display: block;
+  min-height: 1.15em;
+  margin: 14px 0 19px;
+  color: #8299aa;
+  font: 500 clamp(25px, 4vw, 38px) "DM Mono", monospace;
+  letter-spacing: 5px;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+.echo-code.revealing {
+  color: #63e6c5;
+  text-shadow: 0 0 22px #63e6c566;
+  animation: echo-pulse 600ms ease-in-out infinite alternate;
+}
+.echo-lives {
+  margin: 20px 0 0;
+  color: #ff7777;
+  font: 700 19px "DM Mono", monospace;
+  letter-spacing: 5px;
+}
+.echo-best {
+  color: #91a6b6;
+  font: 10px "DM Mono", monospace;
+  letter-spacing: 1px;
+}
+@keyframes echo-pulse {
+  from { opacity: 0.65; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1.02); }
+}
 .training-help {
   color: #91a6b6;
   font-size: 12px;
@@ -1330,6 +1359,9 @@ body[data-theme="light"] .section-heading h2,
 body[data-theme="light"] .recognition-state,
 body[data-theme="light"] .word-target,
 body[data-theme="light"] .training-letter,
+body[data-theme="light"] .echo-code,
+body[data-theme="light"] .echo-lives,
+body[data-theme="light"] .echo-best,
 body[data-theme="light"] .calibration-name,
 body[data-theme="light"] .decoded,
 body[data-theme="light"] .message strong,
